@@ -130,27 +130,37 @@ async function processFeed(context: WorkerContext, feedId: string) {
 
     const insertedArticleIds: string[] = [];
 
+    const existingArticles = await db.article.findMany({
+      where: {
+        feedId: feed.id,
+        sourceUrl: {
+          in: articleInputs.map((input) => input.sourceUrl as string)
+        }
+      },
+      select: {
+        id: true,
+        sourceUrl: true,
+        contentHash: true,
+        fetchedAt: true
+      }
+    });
+
+    const existingByUrl = new Map(
+      existingArticles.map((article) => [article.sourceUrl, article])
+    );
+
     for (const articleInput of articleInputs) {
-      const created = await db.article.upsert({
-        where: {
-          feedId_sourceUrl: {
-            feedId: feed.id,
-            sourceUrl: articleInput.sourceUrl as string
-          }
-        },
-        update: {
-          title: articleInput.title,
-          summary: articleInput.summary,
-          content: articleInput.content,
-          author: articleInput.author,
-          language: articleInput.language,
-          keywords: articleInput.keywords,
-          contentHash: articleInput.contentHash,
-          canonicalUrl: articleInput.canonicalUrl,
-          publishedAt: articleInput.publishedAt ?? null,
-          fetchedAt: articleInput.fetchedAt
-        },
-        create: articleInput
+      const normalizedUrl = articleInput.sourceUrl as string;
+      const existing = existingByUrl.get(normalizedUrl);
+
+      if (existing) {
+        // Skip duplicates we have already seen in this feed.
+        // If the content has changed significantly (hash mismatch) we still skip for now to avoid double ingestion.
+        continue;
+      }
+
+      const created = await db.article.create({
+        data: articleInput
       });
 
       insertedArticleIds.push(created.id);

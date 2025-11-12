@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
+import { ExternalLink } from "lucide-react";
 import type { Article } from "@/lib/api/types";
 
 type ArticleTableProps = {
@@ -64,8 +65,38 @@ export function ArticleTable({
                 onClick={() => onSelectArticle?.(article)}
               >
                 <TableCell>
-                  <div className="font-medium">{article.title}</div>
-                  <div className="text-xs text-muted-foreground">{article.sourceUrl}</div>
+                  <div className="flex items-start gap-3">
+                    <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-md border bg-muted">
+                      {article.heroImageUrl ? (
+                        <img
+                          src={article.heroImageUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                          No image
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="font-medium truncate">{article.title}</div>
+                        <button
+                          type="button"
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            window.open(article.sourceUrl, "_blank", "noopener,noreferrer");
+                          }}
+                          aria-label="Open article"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="text-sm">{article.feedName}</div>
