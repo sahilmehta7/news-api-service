@@ -1,0 +1,133 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum FeedStatus {
+  idle
+  fetching
+  success
+  warning
+  error
+}
+
+enum ArticleStatus {
+  pending
+  ingested
+  enriched
+  failed
+}
+
+enum EnrichmentStatus {
+  pending
+  processing
+  success
+  failed
+}
+
+enum FetchStatus {
+  scheduled
+  running
+  success
+  failure
+  skipped
+}
+
+model Feed {
+  id                   String      @id @default(uuid()) @db.Uuid
+  name                 String
+  url                  String      @unique
+  category             String?
+  tags                 Json
+  isActive             Boolean     @default(true) @map("is_active")
+  fetchIntervalMinutes Int         @default(30) @map("fetch_interval_minutes")
+  lastFetchStatus      FeedStatus? @default(idle) @map("last_fetch_status")
+  lastFetchAt          DateTime?   @map("last_fetch_at") @db.Timestamptz(6)
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  metadata             Json
+
+  articles  Article[]
+  fetchLogs FetchLog[]
+
+  @@map("feeds")
+}
+
+model Article {
+  id           String                   @id @default(uuid()) @db.Uuid
+  feedId       String                   @map("feed_id") @db.Uuid
+  sourceUrl    String                   @map("source_url")
+  canonicalUrl String?                  @map("canonical_url")
+  title        String
+  summary      String?
+  content      String?
+  author       String?
+  language     String?
+  keywords     Json
+  status       ArticleStatus            @default(pending)
+  contentHash  String?                  @unique(map: "articles_content_hash_uidx") @map("content_hash")
+  publishedAt  DateTime?                @map("published_at") @db.Timestamptz(6)
+  fetchedAt    DateTime                 @default(now()) @map("fetched_at") @db.Timestamptz(6)
+  createdAt    DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  searchVector Unsupported("tsvector")? @map("search_vector")
+
+  feed            Feed             @relation(fields: [feedId], references: [id], onDelete: Cascade)
+  articleMetadata ArticleMetadata?
+
+  @@unique([feedId, sourceUrl], map: "articles_feed_source_url_idx")
+  @@index([canonicalUrl], map: "articles_canonical_url_idx")
+  @@index([publishedAt], map: "articles_published_at_idx")
+  @@index([language], map: "articles_language_idx")
+  @@index([status], map: "articles_status_idx")
+  @@index([fetchedAt], map: "articles_fetched_at_idx")
+  @@index([searchVector], type: Gin, map: "articles_search_vector_idx")
+  @@map("articles")
+}
+
+model ArticleMetadata {
+  articleId          String           @id @map("article_id") @db.Uuid
+  enrichmentStatus   EnrichmentStatus @default(pending) @map("enrichment_status")
+  enrichedAt         DateTime?        @map("enriched_at") @db.Timestamptz(6)
+  retries            Int              @default(0)
+  openGraph          Json?            @map("open_graph")
+  twitterCard        Json?            @map("twitter_card")
+  metadata           Json?
+  faviconUrl         String?          @map("favicon_url")
+  heroImageUrl       String?          @map("hero_image_url")
+  contentType        String?          @map("content_type")
+  languageConfidence Json?            @map("language_confidence")
+  readingTimeSeconds Int?             @map("reading_time_seconds")
+  wordCount          Int?             @map("word_count")
+  errorMessage       String?          @map("error_message")
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@map("article_metadata")
+}
+
+model FetchLog {
+  id           String      @id @default(uuid()) @db.Uuid
+  feedId       String      @map("feed_id") @db.Uuid
+  status       FetchStatus
+  startedAt    DateTime    @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt   DateTime?   @map("finished_at") @db.Timestamptz(6)
+  errorMessage String?     @map("error_message")
+  errorStack   String?     @map("error_stack")
+  metrics      Json?       @map("metrics")
+  context      Json?       @map("context")
+
+  feed Feed @relation(fields: [feedId], references: [id], onDelete: Cascade)
+
+  @@map("fetch_logs")
+}

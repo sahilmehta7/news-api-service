@@ -1,0 +1,35 @@
+{
+  "name": "news-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RSS ingestion, enrichment, and API platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "supplier_capabilities"
+  ],
+  "packageManager": "npm@11.6.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "db:push": "prisma db push"
+  },
+  "engines": {
+    "node": ">=20.11.0",
+    "npm": ">=9.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "prisma": "^6.19.0",
+    "turbo": "^2.1.5",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.0"
+  }
+}

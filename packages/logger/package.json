@@ -1,0 +1,22 @@
+{
+  "name": "@news-api/logger",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsup src/index.ts --dts --format esm --out-dir dist",
+    "lint": "biome lint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "pino": "^9.3.2",
+    "pino-pretty": "^11.2.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.2",
+    "tsup": "^8.2.4",
+    "vitest": "^4.0.8"
+  }
+}

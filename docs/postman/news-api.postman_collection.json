@@ -1,0 +1,315 @@
+{
+  "info": {
+    "_postman_id": "2f4c3b1e-0c29-4c07-9c54-7b2f7a7e2a9e",
+    "name": "News API",
+    "description": "Postman collection covering the News API service endpoints. Set the `baseUrl` and `adminKey` variables before running requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{adminKey}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Metrics",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{adminKey}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/metrics",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "metrics"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Feeds",
+      "item": [
+        {
+          "name": "List Feeds",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/feeds",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "feeds"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Feed",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"TechCrunch\",\n  \"url\": \"https://techcrunch.com/feed/\",\n  \"category\": \"technology\",\n  \"tags\": [\"startups\", \"venture\"],\n  \"fetchIntervalMinutes\": 30,\n  \"metadata\": {\n    \"source\": \"rss\"\n  },\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/feeds",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "feeds"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Feed",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"TechCrunch (US)\",\n  \"isActive\": true,\n  \"fetchIntervalMinutes\": 45\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/feeds/{{feedId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "feeds",
+                "{{feedId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Feed",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/feeds/{{feedId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "feeds",
+                "{{feedId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Feed Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/feeds/{{feedId}}/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "feeds",
+                "{{feedId}}",
+                "stats"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Articles",
+      "item": [
+        {
+          "name": "List Articles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/articles?page=1&pageSize=25&sort=publishedAt&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "articles"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "25"
+                },
+                {
+                  "key": "sort",
+                  "value": "publishedAt"
+                },
+                {
+                  "key": "order",
+                  "value": "desc"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Article Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/articles/{{articleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "articles",
+                "{{articleId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Logs",
+      "item": [
+        {
+          "name": "List Fetch Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/logs?page=1&pageSize=25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "logs"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "25"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "adminKey",
+      "value": "<replace-with-admin-key>"
+    },
+    {
+      "key": "feedId",
+      "value": "<feed-id>"
+    },
+    {
+      "key": "articleId",
+      "value": "<article-id>"
+    }
+  ]
+}
+

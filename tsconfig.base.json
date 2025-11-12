@@ -1,0 +1,50 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "resolveJsonModule": true,
+    "allowJs": false,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": [
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@news-api/config": [
+        "packages/config/src/index.ts"
+      ],
+      "@news-api/config/*": [
+        "packages/config/src/*"
+      ],
+      "@news-api/logger": [
+        "packages/logger/src/index.ts"
+      ],
+      "@news-api/logger/*": [
+        "packages/logger/src/*"
+      ],
+      "@news-api/shared": [
+        "packages/shared/src/index.ts"
+      ],
+      "@news-api/shared/*": [
+        "packages/shared/src/*"
+      ],
+      "@news-api/db": [
+        "packages/db/src/index.ts"
+      ],
+      "@news-api/db/*": [
+        "packages/db/src/*"
+      ]
+    }
+  },
+  "include": [
+    "apps",
+    "packages"
+  ]
+}
+
