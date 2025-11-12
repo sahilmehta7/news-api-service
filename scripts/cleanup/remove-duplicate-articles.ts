@@ -5,11 +5,11 @@ const logger = createLogger({ name: "cleanup" });
 
 async function removeDuplicateArticles() {
   const duplicates = await prisma.$queryRaw<
-    Array<{ feed_id: string; source_url: string; duplicate_count: bigint }>
+    Array<{ source_url: string; duplicate_count: bigint }>
   >`
-    SELECT feed_id, source_url, COUNT(*) AS duplicate_count
+    SELECT source_url, COUNT(*) AS duplicate_count
     FROM articles
-    GROUP BY feed_id, source_url
+    GROUP BY source_url
     HAVING COUNT(*) > 1
   `;
 
@@ -25,7 +25,6 @@ async function removeDuplicateArticles() {
   for (const duplicate of duplicates) {
     const articles = await prisma.article.findMany({
       where: {
-        feedId: duplicate.feed_id,
         sourceUrl: duplicate.source_url
       },
       orderBy: [
@@ -70,7 +69,6 @@ async function removeDuplicateArticles() {
 
     logger.info(
       {
-        feedId: duplicate.feed_id,
         sourceUrl: duplicate.source_url,
         keptArticleId: latest.id,
         deletedArticleIds: outdatedIds

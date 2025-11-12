@@ -132,7 +132,6 @@ async function processFeed(context: WorkerContext, feedId: string) {
 
     const existingArticles = await db.article.findMany({
       where: {
-        feedId: feed.id,
         sourceUrl: {
           in: articleInputs.map((input) => input.sourceUrl as string)
         }
@@ -140,7 +139,7 @@ async function processFeed(context: WorkerContext, feedId: string) {
       select: {
         id: true,
         sourceUrl: true,
-        contentHash: true,
+        feedId: true,
         fetchedAt: true
       }
     });
@@ -154,8 +153,14 @@ async function processFeed(context: WorkerContext, feedId: string) {
       const existing = existingByUrl.get(normalizedUrl);
 
       if (existing) {
-        // Skip duplicates we have already seen in this feed.
-        // If the content has changed significantly (hash mismatch) we still skip for now to avoid double ingestion.
+        logger.debug(
+          {
+            feedId: feed.id,
+            existingFeedId: existing.feedId,
+            sourceUrl: normalizedUrl
+          },
+          "Skipping duplicate article insert"
+        );
         continue;
       }
 
