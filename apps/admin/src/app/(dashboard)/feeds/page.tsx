@@ -1,31 +1,24 @@
-"use client";
+import { FeedExplorer } from "@/components/feeds/feed-explorer";
+import { getFeedList } from "@/lib/api/feeds-server";
+import { feedSearchStateToParams, parseFeedSearchParams } from "@/lib/feeds-query";
 
-import Link from "next/link";
+type FeedsPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-import { FeedStats } from "@/components/feeds/feed-stats";
-import { FeedTable } from "@/components/feeds/feed-table";
-import { Button } from "@/components/ui/button";
-import { useFeeds } from "@/lib/api/feeds";
-
-export default function FeedsPage() {
-  const { data } = useFeeds();
+export default async function FeedsPage(props: FeedsPageProps) {
+  const searchParams = await props.searchParams;
+  const searchState = parseFeedSearchParams(searchParams);
+  const feedParams = feedSearchStateToParams(searchState);
+  const feedList = await getFeedList(feedParams);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Feeds</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage RSS sources, review ingestion status, and monitor enrichment throughput.
-          </p>
-        </div>
-        <Button asChild size="sm" className="w-full sm:w-auto">
-          <Link href="/feeds/import">Bulk import feeds</Link>
-        </Button>
-      </div>
-      <FeedStats feeds={data} />
-      <FeedTable />
-    </div>
+    <FeedExplorer
+      initialParams={feedParams}
+      initialTrail={searchState.trail}
+      initialData={feedList}
+      initialSearchParams={searchParams}
+    />
   );
 }
 

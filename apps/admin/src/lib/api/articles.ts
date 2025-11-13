@@ -5,7 +5,9 @@ import {
   articleListResponseSchema,
   type ArticleListResponse,
   articleSchema,
-  type Article
+  type Article,
+  articleHighlightsResponseSchema,
+  type ArticleHighlightsResponse
 } from "./types";
 
 export type ArticleQuery = {
@@ -87,5 +89,19 @@ export async function retryFailedArticlesEnrichment() {
     "/articles/retry-enrichment/bulk",
     {}
   );
+}
+
+export async function getArticleHighlights(
+  params: { window?: "12h" | "24h" | "7d" } = {}
+) {
+  const search = new URLSearchParams();
+  if (params.window) {
+    search.set("window", params.window);
+  }
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const data = await apiClient.get<ArticleHighlightsResponse>(
+    `/articles/highlights${suffix}`
+  );
+  return articleHighlightsResponseSchema.parse(data);
 }
 

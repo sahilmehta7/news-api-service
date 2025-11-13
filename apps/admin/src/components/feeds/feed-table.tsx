@@ -5,15 +5,6 @@ import {
 } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger
-} from "@/components/ui/dialog";
-import {
   Table,
   TableBody,
   TableCell,
@@ -21,15 +12,46 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
-import { FeedForm } from "@/components/feeds/feed-form";
-import { useFeeds, deleteFeed, requestFeedIngestion } from "@/lib/api/feeds";
+import { CreateFeedDialog, EditFeedDialog } from "@/components/feeds/feed-dialogs";
+import { useFeedList, deleteFeed, requestFeedIngestion } from "@/lib/api/feeds";
 import { formatDistanceToNow } from "date-fns";
-import { Loader2, Plus, RefreshCw, Trash2, Pencil } from "lucide-react";
+import { Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export function FeedTable() {
-  const { data, error, isLoading, mutate } = useFeeds();
+  const {
+    data: feedList,
+    error,
+    isLoading,
+    mutate
+  } = useFeedList({
+    limit: 50,
+    sort: "name",
+    order: "asc"
+  });
+  const feeds = feedList?.data ?? [];
   const [ingestingId, setIngestingId] = React.useState<string | null>(null);
+
+  const handleDelete = React.useCallback(
+    async (id: string) => {
+      const confirmed = window.confirm(
+        "Are you sure you want to delete this feed? This action cannot be undone."
+      );
+      if (!confirmed) return;
+
+      try {
+        await deleteFeed(id);
+        toast.success("Feed deleted");
+        void mutate();
+      } catch (error) {
+        console.error(error);
+        toast.error(
+          error instanceof Error ? error.message : "Failed to delete feed"
+        );
+      }
+    },
+    [mutate]
+  );
 
   const handleIngest = React.useCallback(
     async (id: string) => {
@@ -74,13 +96,19 @@ export function FeedTable() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => mutate()}
+            onClick={() => {
+              void mutate();
+            }}
             className="gap-2"
           >
             <RefreshCw className="h-4 w-4" />
             Refresh
           </Button>
-          <CreateFeedDialog />
+          <CreateFeedDialog
+            onCreated={() => {
+              void mutate();
+            }}
+          />
         </div>
       </div>
 
@@ -97,8 +125,8 @@ export function FeedTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data && data.length > 0 ? (
-              data.map((feed) => (
+            {feeds.length > 0 ? (
+              feeds.map((feed) => (
                 <TableRow key={feed.id}>
                   <TableCell>
                     <div className="font-medium">{feed.name}</div>
@@ -138,11 +166,16 @@ export function FeedTable() {
                         <RefreshCw className="h-4 w-4" />
                         <span className="sr-only">Ingest feed</span>
                       </Button>
-                      <EditFeedDialog feed={feed} />
+                      <EditFeedDialog
+                        feed={feed}
+                        onUpdated={() => {
+                          void mutate();
+                        }}
+                      />
                       <Button
                         variant="destructive"
                         size="icon"
-                        onClick={() => handleDelete(feed.id)}
+                        onClick={() => void handleDelete(feed.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Delete feed</span>
@@ -172,8 +205,6 @@ function StatusBadge({ status }: { status: string }) {
   const variant: BadgeProps["variant"] =
     status === "success"
       ? "default"
-      : status === "scheduled"
-      ? "secondary"
       : status === "fetching"
       ? "secondary"
       : status === "warning"
@@ -185,8 +216,6 @@ function StatusBadge({ status }: { status: string }) {
   const label =
     status === "idle"
       ? "Idle"
-      : status === "scheduled"
-      ? "Scheduled"
       : status === "fetching"
       ? "Fetching"
       : status === "success"
@@ -199,65 +228,4 @@ function StatusBadge({ status }: { status: string }) {
 
   return <Badge variant={variant}>{label}</Badge>;
 }
-
-function CreateFeedDialog() {
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button size="sm" className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add feed
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add new feed</DialogTitle>
-          <DialogDescription>
-            Enter the RSS feed details. The ingestion worker will pick it up
-            using the configured interval.
-          </DialogDescription>
-        </DialogHeader>
-        <FeedForm />
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function EditFeedDialog({ feed }: { feed: Parameters<typeof FeedForm>[0]["initialData"] }) {
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="icon">
-          <Pencil className="h-4 w-4" />
-          <span className="sr-only">Edit feed</span>
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit feed</DialogTitle>
-          <DialogDescription>
-            Update feed details and ingestion settings.
-          </DialogDescription>
-        </DialogHeader>
-        <FeedForm initialData={feed ?? undefined} />
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-async function handleDelete(id: string) {
-  const confirmed = window.confirm(
-    "Are you sure you want to delete this feed? This action cannot be undone."
-  );
-  if (!confirmed) return;
-
-  try {
-    await deleteFeed(id);
-    toast.success("Feed deleted");
-  } catch (error) {
-    console.error(error);
-    toast.error(error instanceof Error ? error.message : "Failed to delete feed");
-  }
-}
-
 

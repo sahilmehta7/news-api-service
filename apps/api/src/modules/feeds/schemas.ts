@@ -52,6 +52,96 @@ export const feedResponseSchema = z.object({
 
 export type FeedResponse = z.infer<typeof feedResponseSchema>;
 
+const stringArrayFromQuery = z
+  .union([z.string(), z.array(z.string())])
+  .transform((value) => {
+    if (!value) return [];
+    return Array.isArray(value) ? value.filter(Boolean) : [value].filter(Boolean);
+  })
+  .pipe(z.array(z.string()).default([]));
+
+const booleanFromQuery = z
+  .string()
+  .transform((value) => {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return undefined;
+  })
+  .optional();
+
+const lastFetchStatuses = ["idle", "fetching", "success", "warning", "error"] as const;
+
+export type FeedSortField = "name" | "createdAt" | "lastFetchAt";
+
+export const feedListQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .transform((value) => (value.length > 0 ? value : undefined))
+    .optional(),
+  categories: stringArrayFromQuery.optional(),
+  tags: stringArrayFromQuery.optional(),
+  lastFetchStatuses: stringArrayFromQuery
+    .transform((values) =>
+      values.filter((value): value is (typeof lastFetchStatuses)[number] =>
+        (lastFetchStatuses as readonly string[]).includes(value)
+      )
+    )
+    .optional(),
+  isActive: booleanFromQuery,
+  hasIssues: z
+    .string()
+    .transform((value) => {
+      if (value === "true") return true;
+      if (value === "false") return false;
+      return undefined;
+    })
+    .optional(),
+  sort: z
+    .string()
+    .transform((value) => {
+      const allowed: FeedSortField[] = ["name", "createdAt", "lastFetchAt", "articleCount"];
+      return allowed.includes(value as FeedSortField)
+        ? (value as FeedSortField)
+        : undefined;
+    })
+    .default("createdAt"),
+  order: z
+    .enum(["asc", "desc"])
+    .default("desc"),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  cursor: z
+    .string()
+    .trim()
+    .transform((value) => (value.length > 0 ? value : undefined))
+    .optional()
+});
+
+export type FeedListQuery = z.infer<typeof feedListQuerySchema>;
+
+export const feedListResponseSchema = z.object({
+  data: z.array(feedResponseSchema),
+  pagination: z.object({
+    limit: z.number().int().positive(),
+    nextCursor: z.string().nullable(),
+    hasNextPage: z.boolean(),
+    total: z.number().int().nonnegative()
+  }),
+  summary: z.object({
+    totalFeeds: z.number().int().nonnegative(),
+    activeFeeds: z.number().int().nonnegative(),
+    inactiveFeeds: z.number().int().nonnegative(),
+    issueFeeds: z.number().int().nonnegative(),
+    totalArticles: z.number().int().nonnegative()
+  }),
+  facets: z.object({
+    categories: z.array(z.string()),
+    tags: z.array(z.string())
+  })
+});
+
+export type FeedListResponse = z.infer<typeof feedListResponseSchema>;
+
 export const bulkImportFeedsSchema = z
   .union([
     z.object({

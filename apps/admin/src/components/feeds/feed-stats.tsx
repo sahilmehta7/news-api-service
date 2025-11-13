@@ -1,47 +1,49 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Feed } from "@/lib/api/types";
+import type { FeedListResponse } from "@/lib/api/types";
 
 type FeedStatsProps = {
-  feeds: Feed[] | undefined;
+  summary: FeedListResponse["summary"] | undefined;
 };
 
-export function FeedStats({ feeds }: FeedStatsProps) {
-  const activeFeeds = feeds?.filter((feed) => feed.isActive).length ?? 0;
-  const pendingFeeds =
-    feeds?.filter((feed) => feed.lastFetchStatus === "fetching").length ?? 0;
-  const warningFeeds =
-    feeds?.filter((feed) => feed.lastFetchStatus === "warning").length ?? 0;
-  const errorFeeds =
-    feeds?.filter((feed) => feed.lastFetchStatus === "error").length ?? 0;
+const formatNumber = new Intl.NumberFormat("en-US").format;
 
-  const totalArticles =
-    feeds?.reduce((sum, feed) => sum + feed.stats.articleCount, 0) ?? 0;
+export function FeedStats({ summary }: FeedStatsProps) {
+  const totalFeeds = summary?.totalFeeds ?? 0;
+  const activeFeeds = summary?.activeFeeds ?? 0;
+  const inactiveFeeds = summary?.inactiveFeeds ?? 0;
+  const issueFeeds = summary?.issueFeeds ?? 0;
+  const totalArticles = summary?.totalArticles ?? 0;
+
+  const issueRate =
+    totalFeeds > 0 ? Math.round((issueFeeds / totalFeeds) * 100) : 0;
+  const activeRate =
+    totalFeeds > 0 ? Math.round((activeFeeds / totalFeeds) * 100) : 0;
 
   const cards = [
     {
+      title: "Feeds onboarded",
+      value: formatNumber(totalFeeds),
+      description: `${activeRate}% active`
+    },
+    {
       title: "Active feeds",
-      value: activeFeeds,
-      description: `${feeds?.length ?? 0} feeds total`
+      value: formatNumber(activeFeeds),
+      description: `${formatNumber(inactiveFeeds)} inactive`
     },
     {
-      title: "Currently fetching",
-      value: pendingFeeds,
-      description: "Feeds running ingestion jobs right now"
+      title: "Feeds with issues",
+      value: formatNumber(issueFeeds),
+      description: `${issueRate}% require attention`
     },
     {
-      title: "Warnings",
-      value: warningFeeds,
-      description: "Feeds with non-blocking issues"
-    },
-    {
-      title: "Errors",
-      value: errorFeeds,
-      description: "Feeds needing attention"
+      title: "Inactive feeds",
+      value: formatNumber(inactiveFeeds),
+      description: "Paused or muted sources"
     },
     {
       title: "Articles ingested",
-      value: totalArticles,
-      description: "Total articles across all feeds"
+      value: formatNumber(totalArticles),
+      description: "Across current filter scope"
     }
   ];
 

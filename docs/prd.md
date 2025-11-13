@@ -91,6 +91,7 @@ Article explorer with filters (feed, language, enrichment status, media, date ra
 Metrics dashboard visualizing Prometheus counters/latency and queue health.
 Fetch log viewer with filterable status/search and detail panels exposing metrics and stack traces.
 Settings page for API key rotation, connection testing, and client-side rate limiting guardrails.
+Overview screen surfaces pipeline KPIs, feed alerts, recent activity, API route health, article throughput, timeframe controls, and quick remediation actions (add feed, retry enrichment).
 Search Behavior
 Default sort by publishedAt desc.
 Keyword search uses Postgres ts_rank with simple stemming.
@@ -152,3 +153,9 @@ Developer setup with env vars, running migrations, local ingestion runners.
 API documentation (OpenAPI spec).
 Ops playbook: how to add feeds, rotate API keys, handle failures.
 Admin UI usage guide covering feed management, article exploration, metrics, and log analysis.
+
+## Recent Updates (2025-11-13)
+
+- Rebuilt the admin `/feeds` experience with a server-driven explorer (dual-pane layout, debounced search, filter drawer for categories/tags/health, cursor-based pagination, and per-feed action shortcuts).
+- Added dedicated `/feeds/[feedId]/articles` view reusing the articles tooling with the feed locked in context, plus quick navigation from feed details.
+- Extended feeds API to support structured query parameters, aggregate summaries, per-feed lookups, and feed-article convenience endpoints to back the new UI flows.

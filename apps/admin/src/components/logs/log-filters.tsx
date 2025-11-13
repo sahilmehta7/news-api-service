@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Search, Filter } from "lucide-react";
 
-import { useFeeds } from "@/lib/api/feeds";
+import { useFeedList } from "@/lib/api/feeds";
 import {
   Select,
   SelectContent,
@@ -33,7 +33,12 @@ type LogFiltersProps = {
 };
 
 export function LogFilters({ initialFilters, onChange }: LogFiltersProps) {
-  const { data: feeds } = useFeeds();
+  const { data: feedList } = useFeedList({
+    limit: 200,
+    sort: "name",
+    order: "asc"
+  });
+  const feeds = feedList?.data ?? [];
 
   const {
     register,

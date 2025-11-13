@@ -1,5 +1,3 @@
-import useSWR from "swr";
-
 import { API_METRICS_URL, WORKER_METRICS_URL } from "@/lib/env";
 
 type PromSample = {
@@ -24,18 +22,11 @@ export type MetricsSummary = {
   updatedAt: string;
 };
 
-export function useMetricsSummary() {
-  return useSWR<MetricsSummary>(
-    "metrics-summary",
-    fetchMetricsSummary,
-    {
-      refreshInterval: 30_000,
-      revalidateOnFocus: false
-    }
-  );
+export async function getMetricsSummary(): Promise<MetricsSummary> {
+  return fetchMetricsSummary();
 }
 
-async function fetchMetricsSummary(): Promise<MetricsSummary> {
+export async function fetchMetricsSummary(): Promise<MetricsSummary> {
   const [apiMetrics, workerMetrics] = await Promise.all([
     fetchPrometheus(API_METRICS_URL),
     fetchPrometheus(WORKER_METRICS_URL)
@@ -50,7 +41,7 @@ async function fetchMetricsSummary(): Promise<MetricsSummary> {
   return summary;
 }
 
-async function fetchPrometheus(url: string): Promise<PromSample[]> {
+export async function fetchPrometheus(url: string): Promise<PromSample[]> {
   try {
     const response = await fetch(url, {
       headers: {

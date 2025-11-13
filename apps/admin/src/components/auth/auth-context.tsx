@@ -2,6 +2,11 @@
 
 import * as React from "react";
 
+import {
+  ADMIN_API_KEY_COOKIE,
+  ADMIN_API_KEY_COOKIE_MAX_AGE_SECONDS
+} from "@/lib/auth/constants";
+
 const STORAGE_KEY = "news-admin-api-key";
 const AUTH_EVENT = "news-admin-auth-update";
 
@@ -72,18 +77,32 @@ export function useAuth() {
 
 export function getStoredApiKey(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(STORAGE_KEY);
+
+  const existing = localStorage.getItem(STORAGE_KEY);
+  if (existing) {
+    return existing;
+  }
+
+  const cookieValue = readCookie(ADMIN_API_KEY_COOKIE);
+  if (!cookieValue) {
+    return null;
+  }
+
+  localStorage.setItem(STORAGE_KEY, cookieValue);
+  return cookieValue;
 }
 
 export function setStoredApiKey(key: string) {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, key);
+  setCookie(key);
   dispatchAuthEvent(key);
 }
 
 export function clearStoredApiKey() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(STORAGE_KEY);
+  clearCookie();
   dispatchAuthEvent(null);
 }
 
@@ -91,5 +110,29 @@ function dispatchAuthEvent(apiKey: string | null) {
   if (typeof window === "undefined") return;
   const event = new CustomEvent(AUTH_EVENT, { detail: { apiKey } });
   window.dispatchEvent(event);
+}
+
+function setCookie(value: string) {
+  const maxAge = ADMIN_API_KEY_COOKIE_MAX_AGE_SECONDS;
+  document.cookie = `${ADMIN_API_KEY_COOKIE}=${encodeURIComponent(
+    value
+  )}; path=/; max-age=${maxAge}; SameSite=Lax`;
+}
+
+function clearCookie() {
+  document.cookie = `${ADMIN_API_KEY_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+}
+
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const cookies = document.cookie.split("; ");
+  for (const cookie of cookies) {
+    if (!cookie) continue;
+    const [key, ...rest] = cookie.split("=");
+    if (key === name) {
+      return decodeURIComponent(rest.join("="));
+    }
+  }
+  return null;
 }
 

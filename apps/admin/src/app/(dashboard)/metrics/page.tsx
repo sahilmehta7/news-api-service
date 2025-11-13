@@ -17,19 +17,18 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
-import { useMetricsSummary } from "@/lib/metrics/summary";
+import { useMetricsSummary } from "@/lib/metrics/use-metrics-summary";
 
 export default function MetricsPage() {
   const { data, error, isLoading } = useMetricsSummary();
 
-  const maxIngestion = useMemo(
-    () =>
-      Math.max(
-        1,
-        ...(data?.worker.topFeeds.map((feed) => feed.articles) ?? [1])
-      ),
-    [data?.worker.topFeeds]
-  );
+  const maxIngestion = useMemo(() => {
+    const topFeeds = data?.worker.topFeeds ?? [];
+    if (topFeeds.length === 0) {
+      return 1;
+    }
+    return Math.max(1, ...topFeeds.map((feed) => feed.articles));
+  }, [data?.worker.topFeeds]);
 
   return (
     <div className="space-y-6">

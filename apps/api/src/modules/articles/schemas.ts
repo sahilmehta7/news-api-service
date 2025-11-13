@@ -122,6 +122,9 @@ export const articleListResponseSchema = z.object({
   })
 });
 
+export type ArticleListQuery = z.infer<typeof articleListQuerySchema>;
+export type ArticleListResponse = z.infer<typeof articleListResponseSchema>;
+
 export const articleDetailQuerySchema = z
   .object({
     includeRaw: z
@@ -136,4 +139,24 @@ export const articleDetailQuerySchema = z
   }));
 
 export type ArticleResponse = z.infer<typeof articleResponseSchema>;
+
+export const articleHighlightsQuerySchema = z
+  .object({
+    window: z.enum(["12h", "24h", "7d"]).optional()
+  })
+  .transform((value) => ({
+    window: value.window ?? "24h"
+  }));
+
+export const articleHighlightsResponseSchema = z.object({
+  ingested: z.number().int().nonnegative(),
+  enriched: z.number().int().nonnegative(),
+  pendingEnrichment: z.number().int().nonnegative(),
+  topLanguages: z.array(
+    z.object({
+      language: z.string(),
+      count: z.number().int().nonnegative()
+    })
+  )
+});
 

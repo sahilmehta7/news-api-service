@@ -42,7 +42,7 @@ describe("bulk feed import endpoint", () => {
 
     const feedCreate = vi.fn().mockImplementation(async ({ data }: any) => {
       const createdFeed = {
-        id: "feed-valid-id",
+        id: "00000000-0000-0000-0000-000000000000",
         name: data.name,
         url: data.url,
         category: data.category ?? null,

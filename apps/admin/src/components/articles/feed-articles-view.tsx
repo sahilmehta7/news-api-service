@@ -1,8 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { useQueryStates, parseAsInteger, parseAsString, parseAsStringEnum } from "nuqs";
-import { RefreshCw } from "lucide-react";
+import Link from "next/link";
+import {
+  useQueryStates,
+  parseAsInteger,
+  parseAsString,
+  parseAsStringEnum
+} from "nuqs";
+import { RefreshCw, ArrowLeft } from "lucide-react";
 
 import { ArticleFilters, type ArticleFiltersValue } from "@/components/articles/article-filters";
 import { ArticleTable } from "@/components/articles/article-table";
@@ -23,30 +29,32 @@ import {
   retryFailedArticlesEnrichment
 } from "@/lib/api/articles";
 import type { ApiError } from "@/lib/api/client";
+import type { Article, Feed } from "@/lib/api/types";
 import { useDebounce } from "@/hooks/use-debounce";
-import type { Article } from "@/lib/api/types";
 import { toast } from "sonner";
 
-import { useFeedList } from "@/lib/api/feeds";
 import { buildArticleQuery, filtersFromState } from "@/lib/articles-query";
 
 const DEFAULT_PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 300;
 
-const searchParamConfig = {
-  page: parseAsInteger.withDefault(1),
-  q: parseAsString,
-  feedId: parseAsString,
-  enrichmentStatus: parseAsString,
-  language: parseAsString,
-  hasMedia: parseAsString,
-  fromDate: parseAsString,
-  toDate: parseAsString,
-  sort: parseAsString.withDefault("publishedAt"),
-  order: parseAsStringEnum(["asc", "desc"]).withDefault("desc")
-} as const;
+export function FeedArticlesView({ feed }: { feed: Feed }) {
+  const searchParamConfig = React.useMemo(
+    () => ({
+      page: parseAsInteger.withDefault(1),
+      q: parseAsString,
+      feedId: parseAsString.withDefault(feed.id),
+      enrichmentStatus: parseAsString,
+      language: parseAsString,
+      hasMedia: parseAsString,
+      fromDate: parseAsString,
+      toDate: parseAsString,
+      sort: parseAsStringEnum(["publishedAt", "fetchedAt", "relevance"]).withDefault("publishedAt"),
+      order: parseAsStringEnum(["asc", "desc"]).withDefault("desc")
+    }),
+    [feed.id]
+  );
 
-export default function ArticlesPage() {
   const [{ page, ...searchState }, setSearchParams] = useQueryStates(searchParamConfig, {
     history: "replace"
   });
@@ -56,12 +64,12 @@ export default function ArticlesPage() {
   const [isBulkRetrying, setIsBulkRetrying] = React.useState(false);
   const [searchInput, setSearchInput] = React.useState(searchState.q ?? "");
   const debouncedSearch = useDebounce(searchInput, SEARCH_DEBOUNCE_MS);
-  const { data: feedList } = useFeedList({
-    limit: 200,
-    sort: "name",
-    order: "asc"
-  });
-  const feeds = feedList?.data ?? [];
+
+  React.useEffect(() => {
+    if (searchState.feedId !== feed.id) {
+      void setSearchParams({ feedId: feed.id });
+    }
+  }, [feed.id, searchState.feedId, setSearchParams]);
 
   React.useEffect(() => {
     if (!detailOpen) {
@@ -101,7 +109,7 @@ export default function ArticlesPage() {
   const filtersValue = React.useMemo<ArticleFiltersValue>(
     () =>
       filtersFromState({
-        feedId: searchState.feedId,
+        feedId: feed.id,
         enrichmentStatus: searchState.enrichmentStatus,
         language: searchState.language,
         hasMedia: searchState.hasMedia,
@@ -109,7 +117,7 @@ export default function ArticlesPage() {
         toDate: searchState.toDate
       }),
     [
-      searchState.feedId,
+      feed.id,
       searchState.enrichmentStatus,
       searchState.language,
       searchState.hasMedia,
@@ -121,7 +129,8 @@ export default function ArticlesPage() {
   const query: ArticleQuery = buildArticleQuery(
     {
       page,
-      ...searchState
+      ...searchState,
+      feedId: feed.id
     },
     DEFAULT_PAGE_SIZE
   );
@@ -129,8 +138,14 @@ export default function ArticlesPage() {
   const { data, error, isLoading, isValidating, mutate } = useArticles(query);
 
   const pagination = data?.pagination;
-  const filtersCount = React.useMemo(() => countActiveFilters(filtersValue), [filtersValue]);
-  const activeFilters = React.useMemo(() => createActiveFiltersSummary(filtersValue, feeds), [filtersValue, feeds]);
+  const filtersCount = React.useMemo(
+    () => countActiveFilters(filtersValue),
+    [filtersValue]
+  );
+  const activeFilters = React.useMemo(
+    () => createActiveFiltersSummary(filtersValue),
+    [filtersValue]
+  );
 
   async function handleRetryFailedEnrichment() {
     try {
@@ -164,21 +179,27 @@ export default function ArticlesPage() {
   }
 
   function handleFiltersChange(partial: Partial<ArticleFiltersValue>) {
+    const sanitized: Partial<ArticleFiltersValue> = { ...partial };
+    if ("feedId" in sanitized) {
+      sanitized.feedId = feed.id;
+    }
+
     const values = Object.fromEntries(
-      Object.entries(partial).map(([key, value]) => [
+      Object.entries(sanitized).map(([key, value]) => [
         key,
         value === undefined || value === "" ? null : value
       ])
     );
     void setSearchParams({
       ...(values as Partial<typeof searchState>),
+      feedId: feed.id,
       page: 1
     });
   }
 
   function handleResetFilters() {
     void setSearchParams({
-      feedId: null,
+      feedId: feed.id,
       enrichmentStatus: null,
       language: null,
       hasMedia: null,
@@ -190,6 +211,7 @@ export default function ArticlesPage() {
   }
 
   function handleRemoveFilter(key: keyof ArticleFiltersValue) {
+    if (key === "feedId") return;
     void setSearchParams({ [key]: null, page: 1 });
   }
 
@@ -214,10 +236,21 @@ export default function ArticlesPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Articles</h1>
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Button asChild variant="ghost" size="sm" className="gap-2">
+              <Link href="/feeds">
+                <ArrowLeft className="h-4 w-4" />
+                Back to feeds
+              </Link>
+            </Button>
+            <span className="text-xs uppercase text-muted-foreground">
+              Feed ID: {feed.id}
+            </span>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">{feed.name}</h1>
           <p className="text-sm text-muted-foreground">
-            Search and inspect ingested articles, enrichment metadata, and source signals.
+            Explore articles ingested from this feed. Filters apply only to this source.
           </p>
         </div>
         <Button
@@ -266,6 +299,7 @@ export default function ArticlesPage() {
                 values={filtersValue}
                 onChange={handleFiltersChange}
                 onReset={handleResetFilters}
+                feedSelectDisabled
               />
             </div>
           </SheetContent>
@@ -278,6 +312,8 @@ export default function ArticlesPage() {
             values={filtersValue}
             onChange={handleFiltersChange}
             onReset={handleResetFilters}
+            className="bg-card"
+            feedSelectDisabled
           />
         ) : null}
       </div>
@@ -329,19 +365,13 @@ function isApiError(error: unknown): error is ApiError {
 }
 
 function countActiveFilters(filters: ArticleFiltersValue) {
-  return Object.values(filters).filter((value) => value !== undefined && value !== "").length;
+  return Object.entries(filters)
+    .filter(([key, value]) => key !== "feedId" && value !== undefined && value !== "")
+    .length;
 }
 
-function createActiveFiltersSummary(
-  filters: ArticleFiltersValue,
-  feeds: { id: string; name: string }[] | undefined
-) {
+function createActiveFiltersSummary(filters: ArticleFiltersValue) {
   const entries: Array<{ key: keyof ArticleFiltersValue; label: string; value: string }> = [];
-
-  if (filters.feedId) {
-    const feedName = feeds?.find((feed) => feed.id === filters.feedId)?.name ?? "Selected feed";
-    entries.push({ key: "feedId", label: "Feed", value: feedName });
-  }
 
   if (filters.enrichmentStatus) {
     entries.push({
@@ -377,3 +407,5 @@ function createActiveFiltersSummary(
 function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
+
+

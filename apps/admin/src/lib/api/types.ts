@@ -89,9 +89,42 @@ export const articleListResponseSchema = z.object({
 
 export type ArticleListResponse = z.infer<typeof articleListResponseSchema>;
 
-export const feedListResponseSchema = z.object({
-  feeds: z.array(feedSchema)
+export const articleHighlightsResponseSchema = z.object({
+  ingested: z.number().int().nonnegative(),
+  enriched: z.number().int().nonnegative(),
+  pendingEnrichment: z.number().int().nonnegative(),
+  topLanguages: z.array(
+    z.object({
+      language: z.string(),
+      count: z.number().int().nonnegative()
+    })
+  )
 });
+
+export type ArticleHighlightsResponse = z.infer<typeof articleHighlightsResponseSchema>;
+
+export const feedListResponseSchema = z.object({
+  data: z.array(feedSchema),
+  pagination: z.object({
+    limit: z.number().int().positive(),
+    nextCursor: z.string().nullable(),
+    hasNextPage: z.boolean(),
+    total: z.number().int().nonnegative()
+  }),
+  summary: z.object({
+    totalFeeds: z.number().int().nonnegative(),
+    activeFeeds: z.number().int().nonnegative(),
+    inactiveFeeds: z.number().int().nonnegative(),
+    issueFeeds: z.number().int().nonnegative(),
+    totalArticles: z.number().int().nonnegative()
+  }),
+  facets: z.object({
+    categories: z.array(z.string()),
+    tags: z.array(z.string())
+  })
+});
+
+export type FeedListResponse = z.infer<typeof feedListResponseSchema>;
 
 export const logEntrySchema = z.object({
   id: z.string().uuid(),

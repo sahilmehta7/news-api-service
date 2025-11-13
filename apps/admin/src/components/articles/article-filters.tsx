@@ -1,13 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { CalendarIcon, Search, X } from "lucide-react";
-import { format } from "date-fns";
+import { CalendarIcon, X } from "lucide-react";
 
-import { useFeeds } from "@/lib/api/feeds";
+import { useFeedList } from "@/lib/api/feeds";
 import {
   Select,
   SelectContent,
@@ -15,110 +11,61 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
-const filtersSchema = z.object({
-  feedId: z.string().optional(),
-  enrichmentStatus: z.string().optional(),
-  language: z.string().optional(),
-  hasMedia: z.enum(["", "true", "false"]).optional(),
-  q: z.string().optional(),
-  fromDate: z.string().optional(),
-  toDate: z.string().optional()
-});
-
-export type ArticleFiltersValue = z.infer<typeof filtersSchema>;
+export interface ArticleFiltersValue {
+  feedId?: string;
+  enrichmentStatus?: string;
+  language?: string;
+  hasMedia?: "true" | "false";
+  fromDate?: string;
+  toDate?: string;
+}
 
 type ArticleFiltersProps = {
-  initialFilters?: ArticleFiltersValue;
-  onChange: (values: ArticleFiltersValue) => void;
+  values: ArticleFiltersValue;
+  onChange: (values: Partial<ArticleFiltersValue>) => void;
+  onReset: () => void;
+  className?: string;
+  feedSelectDisabled?: boolean;
 };
 
-export function ArticleFilters({ initialFilters, onChange }: ArticleFiltersProps) {
-  const { data: feeds } = useFeeds();
+const ALL_OPTION = "all";
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    reset,
-    setValue,
-    formState: { isDirty }
-  } = useForm<ArticleFiltersValue>({
-    resolver: zodResolver(filtersSchema),
-    defaultValues: {
-      feedId: "",
-      enrichmentStatus: "",
-      language: "",
-      hasMedia: "",
-      q: "",
-      fromDate: "",
-      toDate: "",
-      ...initialFilters
-    }
+export function ArticleFilters({
+  values,
+  onChange,
+  onReset,
+  className,
+  feedSelectDisabled = false
+}: ArticleFiltersProps) {
+  const { data: feedList } = useFeedList({
+    limit: 200,
+    sort: "name",
+    order: "asc"
   });
+  const feeds = feedList?.data ?? [];
 
-  const feedId = watch("feedId");
-  const enrichmentStatus = watch("enrichmentStatus");
-  const hasMedia = watch("hasMedia");
-
-  const ALL_OPTION = "all";
-
-  function submit(values: ArticleFiltersValue) {
-    onChange({
-      ...values,
-      hasMedia:
-        values.hasMedia === "true"
-          ? "true"
-          : values.hasMedia === "false"
-          ? "false"
-          : ""
-    });
-  }
-
-  React.useEffect(() => {
-    reset({
-      feedId: initialFilters?.feedId ?? "",
-      enrichmentStatus: initialFilters?.enrichmentStatus ?? "",
-      language: initialFilters?.language ?? "",
-      hasMedia: initialFilters?.hasMedia ?? "",
-      q: initialFilters?.q ?? "",
-      fromDate: initialFilters?.fromDate ?? "",
-      toDate: initialFilters?.toDate ?? ""
-    });
-  }, [initialFilters, reset]);
-
-  function handleReset() {
-    reset({
-      feedId: "",
-      enrichmentStatus: "",
-      language: "",
-      hasMedia: "",
-      q: "",
-      fromDate: "",
-      toDate: ""
-    });
-    onChange({});
+  function handleSelectChange<Key extends keyof ArticleFiltersValue>(
+    key: Key,
+    value: ArticleFiltersValue[Key] | undefined
+  ) {
+    onChange({ [key]: value } as Partial<ArticleFiltersValue>);
   }
 
   return (
-    <form
-      className="grid gap-3 rounded-lg border bg-card p-4 lg:grid-cols-6"
-      onSubmit={handleSubmit(submit)}
-    >
-      <div className="lg:col-span-2">
+    <div className={cn("grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3", className)}>
+      <div>
         <Label className="mb-1 block text-xs uppercase text-muted-foreground">Feed</Label>
         <Select
-          value={feedId && feedId.length > 0 ? feedId : ALL_OPTION}
+          value={values.feedId ?? ALL_OPTION}
           onValueChange={(value: string) => {
-            setValue("feedId", value === ALL_OPTION ? "" : value, { shouldDirty: true });
-            void handleSubmit(submit)();
+            handleSelectChange("feedId", value === ALL_OPTION ? undefined : value);
           }}
         >
-          <SelectTrigger className="h-9 text-sm">
+          <SelectTrigger className="h-9 text-sm" disabled={feedSelectDisabled}>
             <SelectValue placeholder="All feeds" />
           </SelectTrigger>
           <SelectContent>
@@ -131,22 +78,20 @@ export function ArticleFilters({ initialFilters, onChange }: ArticleFiltersProps
           </SelectContent>
         </Select>
       </div>
+
       <div>
         <Label className="mb-1 block text-xs uppercase text-muted-foreground">Enrichment status</Label>
         <Select
-          value={enrichmentStatus && enrichmentStatus.length > 0 ? enrichmentStatus : ALL_OPTION}
-          onValueChange={(value: string) => {
-            setValue("enrichmentStatus", value === ALL_OPTION ? "" : value, {
-              shouldDirty: true
-            });
-            void handleSubmit(submit)();
-          }}
+          value={values.enrichmentStatus ?? ALL_OPTION}
+          onValueChange={(value: string) =>
+            handleSelectChange("enrichmentStatus", value === ALL_OPTION ? undefined : value)
+          }
         >
           <SelectTrigger className="h-9 text-sm">
-            <SelectValue placeholder="All" />
+            <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL_OPTION}>All</SelectItem>
+            <SelectItem value={ALL_OPTION}>All statuses</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="processing">Processing</SelectItem>
             <SelectItem value="success">Success</SelectItem>
@@ -154,94 +99,100 @@ export function ArticleFilters({ initialFilters, onChange }: ArticleFiltersProps
           </SelectContent>
         </Select>
       </div>
+
       <div>
         <Label className="mb-1 block text-xs uppercase text-muted-foreground">Language</Label>
-        <Input
+        <FilterTextInput
           placeholder="en"
-          className="h-9"
-          {...register("language")}
-          onBlur={() => void handleSubmit(submit)()}
+          value={values.language ?? ""}
+          onChange={(value: string) =>
+            handleSelectChange("language", value.trim().length > 0 ? value : undefined)
+          }
         />
       </div>
+
       <div>
         <Label className="mb-1 block text-xs uppercase text-muted-foreground">Media</Label>
         <Select
-          value={hasMedia && hasMedia.length > 0 ? hasMedia : ALL_OPTION}
-          onValueChange={(value: string) => {
-            const normalized =
-              value === ALL_OPTION ? "" : (value as ArticleFiltersValue["hasMedia"]);
-            setValue("hasMedia", normalized, { shouldDirty: true });
-            void handleSubmit(submit)();
-          }}
+          value={values.hasMedia ?? ALL_OPTION}
+          onValueChange={(value: string) =>
+            handleSelectChange("hasMedia", value === ALL_OPTION ? undefined : (value as "true" | "false"))
+          }
         >
           <SelectTrigger className="h-9 text-sm">
-            <SelectValue placeholder="All" />
+            <SelectValue placeholder="All media" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL_OPTION}>All</SelectItem>
+            <SelectItem value={ALL_OPTION}>All media</SelectItem>
             <SelectItem value="true">Has media</SelectItem>
             <SelectItem value="false">No media</SelectItem>
           </SelectContent>
         </Select>
       </div>
-      <div className="lg:col-span-2">
-        <Label className="mb-1 block text-xs uppercase text-muted-foreground">Keywords</Label>
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search articles..."
-            className="h-9 pl-8"
-            {...register("q")}
-            onBlur={() => void handleSubmit(submit)()}
-          />
-        </div>
+
+      <div>
+        <Label className="mb-1 block text-xs uppercase text-muted-foreground">Published from</Label>
+        <DateInput
+          value={values.fromDate}
+          onChange={(value) => handleSelectChange("fromDate", value)}
+        />
       </div>
-      <div className="lg:col-span-3 flex items-end gap-2">
-        <div className="w-full">
-          <Label className="mb-1 block text-xs uppercase text-muted-foreground">From</Label>
-          <DateInput {...register("fromDate")} onBlur={() => void handleSubmit(submit)()} />
-        </div>
-        <div className="w-full">
-          <Label className="mb-1 block text-xs uppercase text-muted-foreground">To</Label>
-          <DateInput {...register("toDate")} onBlur={() => void handleSubmit(submit)()} />
-        </div>
+
+      <div>
+        <Label className="mb-1 block text-xs uppercase text-muted-foreground">Published to</Label>
+        <DateInput
+          value={values.toDate}
+          onChange={(value) => handleSelectChange("toDate", value)}
+        />
       </div>
-      <div className="flex items-end justify-end gap-2 lg:col-span-3">
-        <Button type="button" variant="outline" size="sm" onClick={handleReset} disabled={!isDirty}>
-          <X className="mr-2 h-4 w-4" />
-          Reset
-        </Button>
-        <Button type="submit" size="sm" className="gap-2">
-          <Search className="h-4 w-4" />
-          Apply
+
+      <div className="sm:col-span-2 lg:col-span-3">
+        <Button type="button" variant="outline" className="w-full justify-center gap-2" onClick={onReset}>
+          <X className="h-4 w-4" />
+          Reset filters
         </Button>
       </div>
-    </form>
+    </div>
   );
 }
 
-type DateInputProps = React.InputHTMLAttributes<HTMLInputElement>;
+type FilterTextInputProps = {
+  value: string;
+  placeholder?: string;
+  onChange: (value: string) => void;
+};
 
-const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
-  ({ className, value, ...props }, ref) => {
-    const normalizedValue = Array.isArray(value) ? value[0] : value;
-    const formatted = normalizedValue ? format(new Date(normalizedValue), "yyyy-MM-dd") : "";
-    return (
-      <div className="relative">
-        <CalendarIcon className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          ref={ref}
-          type="date"
-          className={cn(
-            "h-9 w-full rounded-md border border-input bg-background pl-8 pr-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-            className
-          )}
-          value={formatted}
-          {...props}
-        />
-      </div>
-    );
-  }
-);
-DateInput.displayName = "DateInput";
+function FilterTextInput({ value, placeholder, onChange }: FilterTextInputProps) {
+  return (
+    <input
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      spellCheck={false}
+    />
+  );
+}
+
+type DateInputProps = {
+  value?: string;
+  onChange: (value: string | undefined) => void;
+};
+
+function DateInput({ value, onChange }: DateInputProps) {
+  return (
+    <div className="relative">
+      <CalendarIcon className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <input
+        type="date"
+        value={value ?? ""}
+        onChange={(event) => {
+          const nextValue = event.target.value;
+          onChange(nextValue.length > 0 ? nextValue : undefined);
+        }}
+        className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-2 text-sm shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      />
+    </div>
+  );
+}
 

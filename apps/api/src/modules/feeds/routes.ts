@@ -1,20 +1,27 @@
 import type { FastifyInstance } from "fastify";
-import { Prisma, FetchStatus } from "@news-api/db";
+import { Prisma, FetchStatus, FeedStatus } from "@news-api/db";
 
 import {
+  bulkImportFeedsSchema,
   createFeedSchema,
   feedIdSchema,
-  bulkImportFeedsSchema,
+  feedListQuerySchema,
+  feedListResponseSchema,
   type BulkImportFeedInput,
+  type FeedListQuery,
   type FeedResponse,
   feedResponseSchema,
   updateFeedSchema
 } from "./schemas.js";
+import { articleListQuerySchema } from "../articles/schemas.js";
+import { listArticles } from "../articles/service.js";
 
 const toJsonValue = (value: unknown): Prisma.InputJsonValue =>
   value === null
     ? (Prisma.JsonNull as unknown as Prisma.InputJsonValue)
     : (value as Prisma.InputJsonValue);
+
+const ISSUE_FEED_STATUSES: FeedStatus[] = [FeedStatus.warning, FeedStatus.error];
 
 type FeedAggregate = {
   articleCount: number;
@@ -27,6 +34,12 @@ const defaultFeedAggregate: FeedAggregate = {
 };
 
 const FEED_VALIDATION_TIMEOUT_MS = 8_000;
+
+type FeedCursorPayload = {
+  id: string | null;
+  sort: FeedListQuery["sort"];
+  order: FeedListQuery["order"];
+};
 
 type BulkImportResult = {
   index: number;
@@ -48,12 +61,34 @@ export async function registerFeedRoutes(app: FastifyInstance) {
     {
       preHandler: app.verifyAdmin
     },
-    async () => {
-      const feeds = await app.db.feed.findMany({
-        orderBy: { name: "asc" }
+    async (request) => {
+      const query = feedListQuerySchema.parse(request.query);
+      const filters = buildFeedFilters(query);
+      const cursorId = decodeCursor(query.cursor, query.sort, query.order);
+
+      const orderBy = buildFeedOrder(query.sort, query.order);
+
+      const feedsPromise = app.db.feed.findMany({
+        where: filters,
+        orderBy,
+        cursor: cursorId ? { id: cursorId } : undefined,
+        skip: cursorId ? 1 : 0,
+        take: query.limit + 1
+      });
+      const facetSourcesPromise = app.db.feed.findMany({
+        where: filters,
+        select: {
+          category: true,
+          tags: true
+        }
       });
 
-      const feedIds = feeds.map((feed) => feed.id);
+      const [feeds, facetSources] = await Promise.all([
+        feedsPromise,
+        facetSourcesPromise
+      ]);
+
+      const feedIds = feeds.slice(0, query.limit).map((feed) => feed.id);
       const groupedStats =
         feedIds.length > 0
           ? await app.db.article.groupBy({
@@ -74,9 +109,77 @@ export async function registerFeedRoutes(app: FastifyInstance) {
         });
       }
 
-      return feeds.map((feed) =>
+      const hasNextPage = feeds.length > query.limit;
+      const trimmed = hasNextPage ? feeds.slice(0, query.limit) : feeds;
+      const nextCursor = hasNextPage
+        ? encodeCursor({
+            id: feeds[query.limit]?.id ?? null,
+            sort: query.sort,
+            order: query.order
+          })
+        : null;
+
+      const serialized = trimmed.map((feed) =>
         serializeFeed(feed, statsMap.get(feed.id) ?? defaultFeedAggregate)
       );
+
+      const categories = Array.from(
+        new Set(
+          facetSources
+            .map((feed) => feed.category?.trim())
+            .filter((category): category is string => Boolean(category && category.length > 0))
+        )
+      ).sort((a, b) => a.localeCompare(b));
+
+      const tags = Array.from(
+        new Set(
+          facetSources.flatMap((feed) =>
+            ensureStringArray(feed.tags)
+              .map((tag) => tag.trim())
+              .filter((tag) => tag.length > 0)
+          )
+        )
+      ).sort((a, b) => a.localeCompare(b));
+
+      const [totalFeeds, activeFeeds, inactiveFeeds, issueFeeds, totalArticles] =
+        await Promise.all([
+          app.db.feed.count({ where: filters }),
+          app.db.feed.count({
+            where: mergeWhere(filters, { isActive: true })
+          }),
+          app.db.feed.count({
+            where: mergeWhere(filters, { isActive: false })
+          }),
+          app.db.feed.count({
+            where: mergeWhere(filters, {
+              lastFetchStatus: { in: ISSUE_FEED_STATUSES }
+            })
+          }),
+          app.db.article.count({
+            where: isWhereEmpty(filters) ? {} : { feed: { is: filters } }
+          })
+        ]);
+
+      return feedListResponseSchema.parse({
+        data: serialized,
+        pagination: {
+          limit: query.limit,
+          nextCursor,
+          hasNextPage,
+          total: totalFeeds
+        },
+        summary: {
+          totalFeeds,
+          activeFeeds,
+          inactiveFeeds,
+          issueFeeds,
+          totalArticles
+        },
+        facets: {
+          categories,
+          tags
+        }
+      });
     }
   );
 
@@ -312,8 +415,7 @@ export async function registerFeedRoutes(app: FastifyInstance) {
           where: { id: params.id }
         });
 
-        reply.code(204);
-        return reply;
+        return reply.status(204).send();
       } catch (error) {
         if (isNotFoundError(error)) {
           reply.code(404).send({
@@ -445,6 +547,58 @@ export async function registerFeedRoutes(app: FastifyInstance) {
     }
   );
 
+  app.get(
+    "/feeds/:id",
+    {
+      preHandler: app.verifyAdmin
+    },
+    async (request, reply) => {
+      const params = feedIdSchema.parse(request.params);
+      const feed = await fetchFeedWithStats(app, params.id);
+
+      if (!feed) {
+        reply.code(404).send({
+          error: "NotFound",
+          message: `Feed ${params.id} not found`
+        });
+        return reply;
+      }
+
+      return feedResponseSchema.parse(feed);
+    }
+  );
+
+  app.get(
+    "/feeds/:id/articles",
+    {
+      preHandler: app.verifyAdmin
+    },
+    async (request, reply) => {
+      const params = feedIdSchema.parse(request.params);
+
+      const feed = await app.db.feed.findUnique({
+        where: { id: params.id },
+        select: { id: true }
+      });
+
+      if (!feed) {
+        reply.code(404).send({
+          error: "NotFound",
+          message: `Feed ${params.id} not found`
+        });
+        return reply;
+      }
+
+      const baseQuery = articleListQuerySchema.parse(request.query);
+      const response = await listArticles(app, {
+        ...baseQuery,
+        feedId: params.id
+      });
+
+      return response;
+    }
+  );
+
   app.post(
     "/feeds/:id/ingest",
     {
@@ -479,6 +633,162 @@ export async function registerFeedRoutes(app: FastifyInstance) {
       reply.code(202).send({ status: "scheduled" });
     }
   );
+}
+
+function buildFeedFilters(query: FeedListQuery): Prisma.FeedWhereInput {
+  const filters: Prisma.FeedWhereInput[] = [];
+
+  if (query.q) {
+    filters.push({
+      OR: [
+        {
+          name: {
+            contains: query.q,
+            mode: "insensitive"
+          }
+        },
+        {
+          url: {
+            contains: query.q,
+            mode: "insensitive"
+          }
+        }
+      ]
+    });
+  }
+
+  if (query.categories && query.categories.length > 0) {
+    filters.push({
+      category: {
+        in: query.categories
+      }
+    });
+  }
+
+  if (query.tags && query.tags.length > 0) {
+    filters.push({
+      tags: {
+        array_contains: query.tags
+      }
+    });
+  }
+
+  if (query.lastFetchStatuses && query.lastFetchStatuses.length > 0) {
+    filters.push({
+      lastFetchStatus: {
+        in: query.lastFetchStatuses as FeedStatus[]
+      }
+    });
+  }
+
+  if (typeof query.isActive === "boolean") {
+    filters.push({
+      isActive: query.isActive
+    });
+  }
+
+  if (query.hasIssues === true) {
+    filters.push({
+      lastFetchStatus: {
+        in: ISSUE_FEED_STATUSES
+      }
+    });
+  } else if (query.hasIssues === false) {
+    filters.push({
+      NOT: {
+        lastFetchStatus: {
+          in: ISSUE_FEED_STATUSES
+        }
+      }
+    });
+  }
+
+  if (filters.length === 0) {
+    return {};
+  }
+
+  return {
+    AND: filters
+  };
+}
+
+function buildFeedOrder(
+  sort: FeedListQuery["sort"],
+  order: FeedListQuery["order"]
+): Prisma.FeedOrderByWithRelationInput[] {
+  const direction = order === "asc" ? "asc" : "desc";
+
+  if (sort === "name") {
+    return [{ name: direction }, { id: direction }];
+  }
+
+  if (sort === "lastFetchAt") {
+    return [{ lastFetchAt: direction }, { id: direction }];
+  }
+
+  return [{ createdAt: direction }, { id: direction }];
+}
+
+function encodeCursor(payload: FeedCursorPayload): string | null {
+  if (!payload.id) {
+    return null;
+  }
+
+  return Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+}
+
+function decodeCursor(
+  cursor: string | undefined,
+  expectedSort: FeedListQuery["sort"],
+  expectedOrder: FeedListQuery["order"]
+): string | null {
+  if (!cursor) {
+    return null;
+  }
+
+  try {
+    const decoded = JSON.parse(
+      Buffer.from(cursor, "base64url").toString("utf8")
+    ) as FeedCursorPayload;
+
+    if (
+      !decoded ||
+      typeof decoded.id !== "string" ||
+      decoded.sort !== expectedSort ||
+      decoded.order !== expectedOrder
+    ) {
+      return null;
+    }
+
+    return decoded.id;
+  } catch {
+    return null;
+  }
+}
+
+function mergeWhere(
+  base: Prisma.FeedWhereInput,
+  extra: Prisma.FeedWhereInput
+): Prisma.FeedWhereInput {
+  if (isWhereEmpty(base)) {
+    return extra;
+  }
+
+  if (isWhereEmpty(extra)) {
+    return base;
+  }
+
+  return {
+    AND: [base, extra]
+  };
+}
+
+function isWhereEmpty(where: Prisma.FeedWhereInput | undefined): boolean {
+  if (!where) {
+    return true;
+  }
+
+  return Object.keys(where).length === 0;
 }
 
 async function fetchFeedWithStats(
