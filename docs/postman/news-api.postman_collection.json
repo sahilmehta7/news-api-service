@@ -184,6 +184,30 @@
               ]
             }
           }
+        },
+        {
+          "name": "Ingest Feed",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/feeds/{{feedId}}/ingest",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "feeds",
+                "{{feedId}}",
+                "ingest"
+              ]
+            }
+          }
         }
       ]
     },
@@ -249,6 +273,30 @@
               "path": [
                 "articles",
                 "{{articleId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Retry Article Enrichment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/articles/{{articleId}}/retry-enrichment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "articles",
+                "{{articleId}}",
+                "retry-enrichment"
               ]
             }
           }

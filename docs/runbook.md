@@ -64,6 +64,28 @@
 - Admin metrics dashboard: `/metrics` within the admin UI visualizes API and worker summaries.
 - Admin logs view: `/logs` exposes fetch/enrichment attempts with filters and stack traces for debugging.
 
+## Manual Operations
+
+- **Trigger a feed ingestion immediately**  
+  Use the admin UI “Ingest feed” button or call:  
+  ```bash
+  curl -X POST \
+    -H "X-API-Key: ${API_ADMIN_KEY}" \
+    "{{baseUrl}}/feeds/<feedId>/ingest"
+  ```
+- **Retry enrichment for a failed article**  
+  Use the “Retry enrichment” button in the article drawer or run:  
+  ```bash
+  curl -X POST \
+    -H "X-API-Key: ${API_ADMIN_KEY}" \
+    "{{baseUrl}}/articles/<articleId>/retry-enrichment"
+  ```
+- **Remove historical duplicates (global `source_url` check)**  
+  ```bash
+  npm run cleanup:dedupe-articles
+  ```
+  The script keeps the most recent article per `source_url` and deletes older copies and their metadata.
+
 ## Verification Checklist
 
 - `GET /feeds` returns registered feeds with `stats.articleCount`.

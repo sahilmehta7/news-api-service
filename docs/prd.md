@@ -5,7 +5,7 @@ Users: Internal product teams building dashboards or customer-facing interfaces;
 2. Objectives & Success Metrics
 Primary Objectives
 Automate ingest of selected RSS feeds on a schedule with error resiliency.
-Normalize and deduplicate articles, capturing references to source feeds.
+Normalize and deduplicate articles globally by `source_url`, capturing references to source feeds.
 Enrich articles with metadata (Open Graph, title/description, favicon, canonical URL, content type, language, word count, etc.).
 Provide RESTful/GraphQL APIs with search and filter capabilities (date ranges, source, topic, language, keywords).
 Support pagination, sorting, and simple relevance scoring.
@@ -25,7 +25,7 @@ Next.js dashboard for feed management, article exploration, metrics, logs, and A
 Ingestion Pipeline
 Scheduled or on-demand fetch of RSS feeds (cron, queue-based).
 Parsing of standard RSS/Atom formats; graceful handling of malformed feeds.
-Duplicate detection using URL canonicalization + content hash.
+Duplicate detection using URL canonicalization plus global `source_url` checks; retain the newest record and surface maintenance scripts to prune older duplicates.
 Retry policy for transient fetch errors.
 Data Model
 PostgreSQL schemas for feeds, articles, enrichment metadata, fetch logs.
@@ -68,7 +68,7 @@ Ingestion Worker
 Cron runs per feed interval.
 Fetch uses ETag/Last-Modified headers when available.
 Parse entries into canonical article schema.
-Queue deduplicated new article URLs for enrichment.
+Queue deduplicated new article URLs for enrichment and expose operator tooling to retry failed enrichments without manual DB intervention.
 Article Storage
 Schema: article id, feed id, source URL, canonical URL, title, summary, content snippet, published_at, fetched_at, language, tags.
 Metadata table: article id, enrichment payload (type-safe JSONB), status, attempts, enriched_at.
@@ -86,8 +86,8 @@ Query results include pagination info, highlight matched keywords.
 Support partial text match via q param (maps to full-text search).
 Sort options: publishedAt, relevance, fetchedAt.
 Admin Interface
-Feed catalogue view with create/edit/delete flows, optimistic updates, and stats.
-Article explorer with filters (feed, language, enrichment status, media, date range) and detail inspector for metadata/debug data.
+Feed catalogue view with create/edit/delete flows, optimistic updates, stats, and an explicit “Ingest feed” trigger for on-demand runs.
+Article explorer with filters (feed, language, enrichment status, media, date range) and detail inspector for metadata/debug data, including a “Retry enrichment” control for failed items.
 Metrics dashboard visualizing Prometheus counters/latency and queue health.
 Fetch log viewer with filterable status/search and detail panels exposing metrics and stack traces.
 Settings page for API key rotation, connection testing, and client-side rate limiting guardrails.
