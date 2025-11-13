@@ -8,6 +8,11 @@ import { workerMetrics } from "../metrics/registry.js";
 
 const FETCH_LOG_CONTEXT = { job: "rss-ingestion" };
 
+const toJsonValue = (value: unknown): Prisma.InputJsonValue =>
+  value === null
+    ? (Prisma.JsonNull as unknown as Prisma.InputJsonValue)
+    : (value as Prisma.InputJsonValue);
+
 export async function ingestDueFeeds(context: WorkerContext) {
   const dueFeeds = await loadDueFeeds(context);
 
@@ -101,9 +106,10 @@ async function processFeed(context: WorkerContext, feedId: string) {
   const fetchLog = await db.fetchLog.create({
     data: {
       feedId: feed.id,
+      operation: "fetch",
       status: FetchStatus.running,
       startedAt: startTime,
-      context: FETCH_LOG_CONTEXT
+      context: toJsonValue(FETCH_LOG_CONTEXT)
     }
   });
 
@@ -125,7 +131,8 @@ async function processFeed(context: WorkerContext, feedId: string) {
     const articleInputs = items
       .map((item) => mapRssItemToArticle(feed.id, item))
       .filter(
-        (article): article is Prisma.ArticleCreateInput => article !== null
+        (article): article is Prisma.ArticleUncheckedCreateInput =>
+          article !== null
       );
 
     const insertedArticleIds: string[] = [];
@@ -189,7 +196,7 @@ async function processFeed(context: WorkerContext, feedId: string) {
         data: {
           lastFetchStatus: "success",
           lastFetchAt: new Date(),
-          metadata: feed.metadata
+          metadata: toJsonValue(feed.metadata ?? null)
         }
       }),
       db.fetchLog.update({
@@ -197,12 +204,12 @@ async function processFeed(context: WorkerContext, feedId: string) {
         data: {
           status: FetchStatus.success,
           finishedAt: new Date(),
-          metrics: {
+          metrics: toJsonValue({
             ...FETCH_LOG_CONTEXT,
             itemsParsed: items.length,
             itemsInserted: insertedArticleIds.length,
             itemsDuplicated: items.length - insertedArticleIds.length
-          }
+          })
         }
       })
     ]);
@@ -266,7 +273,7 @@ async function processFeed(context: WorkerContext, feedId: string) {
 function mapRssItemToArticle(
   feedId: string,
   item: NonNullable<Awaited<ReturnType<typeof fetchFeed>>["items"]>[number]
-): Prisma.ArticleCreateInput | null {
+): Prisma.ArticleUncheckedCreateInput | null {
   const link = item.link ?? item.guid ?? item.id;
 
   if (!link) {
@@ -304,7 +311,7 @@ function mapRssItemToArticle(
     content: encodedContent ?? item.content ?? null,
     author: author ?? null,
     language: dcLanguage,
-    keywords: keywords as Prisma.JsonValue,
+    keywords: toJsonValue(keywords),
     status: ArticleStatus.ingested,
     contentHash: sha256FromStrings(
       link,

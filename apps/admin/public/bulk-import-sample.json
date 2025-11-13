@@ -1,0 +1,17 @@
+{
+  "feeds": [
+    {
+      "name": "TechCrunch",
+      "url": "https://techcrunch.com/feed/",
+      "category": "Technology",
+      "tags": ["startups", "venture"]
+    },
+    {
+      "name": "The Verge",
+      "url": "https://www.theverge.com/rss/index.xml",
+      "category": "Technology",
+      "tags": ["gadgets", "consumer tech"]
+    }
+  ]
+}
+

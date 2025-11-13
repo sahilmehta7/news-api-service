@@ -22,6 +22,10 @@ export async function registerLogRoutes(app: FastifyInstance) {
         where.status = query.status;
       }
 
+      if (query.operation) {
+        where.operation = query.operation;
+      }
+
       if (query.search) {
         where.OR = [
           {
@@ -65,8 +69,9 @@ export async function registerLogRoutes(app: FastifyInstance) {
       return {
         data: logs.map((log) => ({
           id: log.id,
-          feedId: log.feedId,
+          feedId: log.feedId ?? null,
           feedName: log.feed?.name ?? null,
+          operation: log.operation,
           status: log.status,
           startedAt: log.startedAt.toISOString(),
           finishedAt: log.finishedAt ? log.finishedAt.toISOString() : null,

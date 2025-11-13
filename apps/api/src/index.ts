@@ -29,7 +29,7 @@ async function main() {
   const server = Fastify({
     logger: false,
     loggerInstance: logger
-  });
+  }) as unknown as FastifyInstance;
 
   await server.register(cors);
   await server.register(dbPlugin);

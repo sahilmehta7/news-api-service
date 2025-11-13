@@ -1,6 +1,14 @@
 import useSWR, { mutate } from "swr";
 import { apiClient } from "./client";
-import { feedSchema, type Feed, type FeedInput } from "./types";
+import {
+  feedSchema,
+  bulkImportResponseSchema,
+  bulkImportPayloadSchema,
+  type Feed,
+  type FeedInput,
+  type BulkImportResponse,
+  type BulkImportPayload
+} from "./types";
 
 const endpoint = "/feeds";
 
@@ -52,5 +60,11 @@ export async function deleteFeed(id: string) {
 
 export async function requestFeedIngestion(id: string) {
   await apiClient.post(`${endpoint}/${id}/ingest`, {});
+}
+
+export async function bulkImportFeeds(payload: unknown): Promise<BulkImportResponse> {
+  const parsed = bulkImportPayloadSchema.parse(payload) as BulkImportPayload;
+  const data = await apiClient.post<BulkImportResponse>(`${endpoint}/import`, parsed);
+  return bulkImportResponseSchema.parse(data);
 }
 

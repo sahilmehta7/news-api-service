@@ -17,6 +17,14 @@ type LogTableProps = {
   onSelectLog?: (log: LogEntry) => void;
 };
 
+const formatOperation = (operation: LogEntry["operation"]) => {
+  if (operation === "feed_import") {
+    return "Bulk import";
+  }
+
+  return "Fetch";
+};
+
 export function LogTable({ logs, loading, error, onSelectLog }: LogTableProps) {
   if (loading) {
     return (
@@ -40,6 +48,7 @@ export function LogTable({ logs, loading, error, onSelectLog }: LogTableProps) {
         <TableHeader>
           <TableRow>
             <TableHead>Feed</TableHead>
+            <TableHead>Operation</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Started</TableHead>
             <TableHead>Duration</TableHead>
@@ -55,8 +64,16 @@ export function LogTable({ logs, loading, error, onSelectLog }: LogTableProps) {
                 onClick={() => onSelectLog?.(log)}
               >
                 <TableCell>
-                  <div className="font-medium">{log.feedName ?? "Unknown feed"}</div>
-                  <div className="text-xs text-muted-foreground">{log.feedId}</div>
+                  <div className="font-medium">
+                    {log.feedName ??
+                      (log.operation === "feed_import" ? "Bulk import" : "Unknown feed")}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {log.feedId ?? (log.operation === "feed_import" ? "N/A" : "—")}
+                  </div>
+                </TableCell>
+                <TableCell className="text-sm">
+                  {formatOperation(log.operation)}
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={log.status} />
@@ -78,10 +95,7 @@ export function LogTable({ logs, loading, error, onSelectLog }: LogTableProps) {
             ))
           ) : (
             <TableRow>
-              <TableCell
-                colSpan={5}
-                className="py-10 text-center text-sm text-muted-foreground"
-              >
+              <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
                 No fetch logs found for the selected filters.
               </TableCell>
             </TableRow>

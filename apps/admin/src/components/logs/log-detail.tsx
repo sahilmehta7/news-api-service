@@ -40,6 +40,10 @@ export function LogDetail({ log, open, onOpenChange }: LogDetailProps) {
     }
   }
 
+  const titleLabel =
+    log?.operation === "feed_import" ? "Bulk import job" : "Fetch attempt";
+  const subjectLabel = log ? log.feedName ?? log.feedId ?? null : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[80vh] overflow-y-auto">
@@ -47,7 +51,10 @@ export function LogDetail({ log, open, onOpenChange }: LogDetailProps) {
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center justify-between gap-2">
-                <span>Fetch attempt · {log.feedName ?? log.feedId}</span>
+                <span>
+                  {titleLabel}
+                  {subjectLabel ? ` · ${subjectLabel}` : ""}
+                </span>
                 <Badge variant={badgeVariant(log.status)}>{log.status}</Badge>
               </DialogTitle>
               <DialogDescription>
@@ -60,8 +67,14 @@ export function LogDetail({ log, open, onOpenChange }: LogDetailProps) {
               <h2 className="text-sm font-semibold uppercase text-muted-foreground">Context</h2>
               <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
                 <div>
+                  <dt className="text-muted-foreground">Operation</dt>
+                  <dd className="font-medium">{formatOperation(log.operation)}</dd>
+                </div>
+                <div>
                   <dt className="text-muted-foreground">Feed ID</dt>
-                  <dd className="font-medium">{log.feedId}</dd>
+                  <dd className="font-medium">
+                    {log.feedId ?? (log.operation === "feed_import" ? "—" : "Unknown")}
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Started at</dt>
@@ -117,6 +130,13 @@ export function LogDetail({ log, open, onOpenChange }: LogDetailProps) {
     </Dialog>
   );
 }
+
+const formatOperation = (operation: LogEntry["operation"]) => {
+  if (operation === "feed_import") {
+    return "Bulk import";
+  }
+  return "Fetch";
+};
 
 function JsonPanel({
   data,

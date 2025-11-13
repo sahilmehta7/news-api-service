@@ -1,13 +1,20 @@
 import type { FastifyInstance } from "fastify";
-import { Prisma } from "@news-api/db";
+import { Prisma, FetchStatus } from "@news-api/db";
 
 import {
   createFeedSchema,
   feedIdSchema,
+  bulkImportFeedsSchema,
+  type BulkImportFeedInput,
   type FeedResponse,
   feedResponseSchema,
   updateFeedSchema
 } from "./schemas.js";
+
+const toJsonValue = (value: unknown): Prisma.InputJsonValue =>
+  value === null
+    ? (Prisma.JsonNull as unknown as Prisma.InputJsonValue)
+    : (value as Prisma.InputJsonValue);
 
 type FeedAggregate = {
   articleCount: number;
@@ -17,6 +24,22 @@ type FeedAggregate = {
 const defaultFeedAggregate: FeedAggregate = {
   articleCount: 0,
   lastArticlePublishedAt: null
+};
+
+const FEED_VALIDATION_TIMEOUT_MS = 8_000;
+
+type BulkImportResult = {
+  index: number;
+  name: string;
+  url: string;
+  status: "success" | "failure" | "skipped";
+  reason?: string;
+  feed?: FeedResponse | null;
+  validation?: {
+    isValid: boolean;
+    statusCode?: number | null;
+    error?: string;
+  };
 };
 
 export async function registerFeedRoutes(app: FastifyInstance) {
@@ -70,9 +93,9 @@ export async function registerFeedRoutes(app: FastifyInstance) {
           name: payload.name,
           url: payload.url,
           category: payload.category ?? null,
-          tags: (payload.tags ?? []) as Prisma.JsonValue,
+          tags: toJsonValue(payload.tags ?? []),
           fetchIntervalMinutes: payload.fetchIntervalMinutes ?? 30,
-          metadata: (payload.metadata ?? {}) as Prisma.JsonValue,
+          metadata: toJsonValue(payload.metadata ?? {}),
           isActive: payload.isActive ?? true
         }
       });
@@ -92,6 +115,134 @@ export async function registerFeedRoutes(app: FastifyInstance) {
     }
   );
 
+  app.post(
+    "/feeds/import",
+    {
+      preHandler: app.verifyAdmin
+    },
+    async (request, reply) => {
+      const feeds = bulkImportFeedsSchema.parse(request.body);
+
+      const results: BulkImportResult[] = [];
+
+      for (const [index, feedInput] of feeds.entries()) {
+        const baseResult: Omit<BulkImportResult, "status"> = {
+          index,
+          name: feedInput.name,
+          url: feedInput.url
+        };
+
+        const existingFeed = await app.db.feed.findUnique({
+          where: { url: feedInput.url }
+        });
+
+        if (existingFeed) {
+          const feedWithStats = await fetchFeedWithStats(app, existingFeed.id);
+          results.push({
+            ...baseResult,
+            status: "skipped",
+            reason: "Feed already exists",
+            feed: feedWithStats
+          });
+          continue;
+        }
+
+        const validation = await validateFeedUrl(feedInput.url);
+        if (!validation.isValid) {
+          results.push({
+            ...baseResult,
+            status: "failure",
+            reason: validation.error ?? "Feed URL validation failed",
+            validation: {
+              isValid: false,
+              statusCode: validation.statusCode ?? null,
+              error: validation.error
+            }
+          });
+          continue;
+        }
+
+        try {
+          const created = await app.db.feed.create({
+            data: mapFeedInputToCreateData(feedInput)
+          });
+
+          const feedWithStats = await fetchFeedWithStats(app, created.id);
+
+          results.push({
+            ...baseResult,
+            status: "success",
+            feed: feedWithStats,
+            validation: {
+              isValid: true,
+              statusCode: validation.statusCode ?? null
+            }
+          });
+        } catch (error) {
+          const reason =
+            error instanceof Error ? error.message : "Unknown error occurred";
+
+          results.push({
+            ...baseResult,
+            status: "failure",
+            reason,
+            validation: {
+              isValid: true,
+              statusCode: validation.statusCode ?? null
+            }
+          });
+        }
+      }
+
+      const summary = {
+        total: results.length,
+        succeeded: results.filter((item) => item.status === "success").length,
+        failed: results.filter((item) => item.status === "failure").length,
+        skipped: results.filter((item) => item.status === "skipped").length
+      };
+
+      const overallStatus =
+        summary.failed === 0
+          ? "success"
+          : summary.succeeded === 0
+            ? "failure"
+            : "partial_success";
+
+      await app.db.fetchLog.create({
+        data: {
+          feedId: null,
+          operation: "feed_import",
+          status: summary.failed > 0 ? FetchStatus.failure : FetchStatus.success,
+          metrics: toJsonValue(summary),
+          context: toJsonValue({
+            results: results.map((item) => ({
+              name: item.name,
+              url: item.url,
+              status: item.status,
+              reason: item.reason ?? null,
+              feedId: item.feed?.id ?? null,
+              validation: item.validation ?? null
+            })),
+            summary: {
+              ...summary,
+              overallStatus
+            }
+          })
+        }
+      });
+
+      reply.code(200);
+
+      return {
+        summary: {
+          ...summary,
+          overallStatus
+        },
+        results
+      };
+    }
+  );
+
   app.patch(
     "/feeds/:id",
     {
@@ -107,13 +258,13 @@ export async function registerFeedRoutes(app: FastifyInstance) {
       if (payload.url !== undefined) data.url = payload.url;
       if (payload.category !== undefined) data.category = payload.category;
       if (payload.tags !== undefined) {
-        data.tags = payload.tags as Prisma.JsonValue;
+        data.tags = toJsonValue(payload.tags);
       }
       if (payload.fetchIntervalMinutes !== undefined) {
         data.fetchIntervalMinutes = payload.fetchIntervalMinutes;
       }
       if (payload.metadata !== undefined) {
-        data.metadata = payload.metadata as Prisma.JsonValue;
+        data.metadata = toJsonValue(payload.metadata ?? {});
       }
       if (payload.isActive !== undefined) data.isActive = payload.isActive;
 
@@ -352,6 +503,67 @@ async function fetchFeedWithStats(
     articleCount: aggregate._count?._all ?? 0,
     lastArticlePublishedAt: aggregate._max?.publishedAt ?? null
   });
+}
+
+function mapFeedInputToCreateData(
+  input: BulkImportFeedInput
+): Prisma.FeedCreateInput {
+  return {
+    name: input.name,
+    url: input.url,
+    category: input.category ?? null,
+    tags: toJsonValue(input.tags ?? []),
+    fetchIntervalMinutes: input.fetchIntervalMinutes ?? 30,
+    metadata: toJsonValue(input.metadata ?? {}),
+    isActive: input.isActive ?? true
+  };
+}
+
+async function validateFeedUrl(
+  url: string
+): Promise<{
+  isValid: boolean;
+  statusCode?: number;
+  error?: string;
+}> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FEED_VALIDATION_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        "user-agent":
+          "news-api-bulk-importer/0.1 (+https://github.com/sahilmehta/news-api)",
+        accept: "application/rss+xml, application/xml;q=0.9, */*;q=0.8"
+      }
+    });
+
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => {});
+
+      return {
+        isValid: false,
+        statusCode: response.status,
+        error: `HTTP ${response.status} ${response.statusText}`.trim()
+      };
+    }
+
+    await response.body?.cancel().catch(() => {});
+
+    return {
+      isValid: true,
+      statusCode: response.status
+    };
+  } catch (error) {
+    return {
+      isValid: false,
+      error: error instanceof Error ? error.message : "Unknown error"
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function serializeFeed(

@@ -90,6 +90,9 @@ function sanitizeFilters(filters: LogFiltersValue): LogsQuery {
   if (filters.status) {
     cleaned.status = filters.status;
   }
+  if (filters.operation) {
+    cleaned.operation = filters.operation;
+  }
   if (filters.search) {
     cleaned.search = filters.search.trim();
   }

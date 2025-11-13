@@ -122,7 +122,7 @@ export async function registerArticleRoutes(app: FastifyInstance) {
 
       const whereClause =
         conditions.length > 0
-          ? Prisma.sql`WHERE ${Prisma.join(conditions, Prisma.sql` AND `)}`
+          ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
           : Prisma.sql``;
 
       const orderDirection = filters.order ?? "desc";
@@ -188,8 +188,9 @@ export async function registerArticleRoutes(app: FastifyInstance) {
       `;
 
       const rows = await app.db.$queryRaw<RawArticleRow[]>(querySql);
+      const firstRow = rows[0];
       const total =
-        rows.length > 0 ? Number(rows[0].total ?? rows.length) : 0;
+        rows.length > 0 ? Number(firstRow?.total ?? rows.length) : 0;
 
       const data = rows.map(serializeRawArticle);
 

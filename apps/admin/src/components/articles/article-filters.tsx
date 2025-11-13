@@ -113,7 +113,7 @@ export function ArticleFilters({ initialFilters, onChange }: ArticleFiltersProps
         <Label className="mb-1 block text-xs uppercase text-muted-foreground">Feed</Label>
         <Select
           value={feedId && feedId.length > 0 ? feedId : ALL_OPTION}
-          onValueChange={(value) => {
+          onValueChange={(value: string) => {
             setValue("feedId", value === ALL_OPTION ? "" : value, { shouldDirty: true });
             void handleSubmit(submit)();
           }}
@@ -135,7 +135,7 @@ export function ArticleFilters({ initialFilters, onChange }: ArticleFiltersProps
         <Label className="mb-1 block text-xs uppercase text-muted-foreground">Enrichment status</Label>
         <Select
           value={enrichmentStatus && enrichmentStatus.length > 0 ? enrichmentStatus : ALL_OPTION}
-          onValueChange={(value) => {
+          onValueChange={(value: string) => {
             setValue("enrichmentStatus", value === ALL_OPTION ? "" : value, {
               shouldDirty: true
             });
@@ -167,7 +167,7 @@ export function ArticleFilters({ initialFilters, onChange }: ArticleFiltersProps
         <Label className="mb-1 block text-xs uppercase text-muted-foreground">Media</Label>
         <Select
           value={hasMedia && hasMedia.length > 0 ? hasMedia : ALL_OPTION}
-          onValueChange={(value) => {
+          onValueChange={(value: string) => {
             const normalized =
               value === ALL_OPTION ? "" : (value as ArticleFiltersValue["hasMedia"]);
             setValue("hasMedia", normalized, { shouldDirty: true });

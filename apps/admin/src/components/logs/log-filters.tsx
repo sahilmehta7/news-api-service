@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 const filtersSchema = z.object({
   feedId: z.string().optional(),
   status: z.string().optional(),
+  operation: z.string().optional(),
   search: z.string().optional()
 });
 
@@ -46,6 +47,7 @@ export function LogFilters({ initialFilters, onChange }: LogFiltersProps) {
     defaultValues: {
       feedId: "",
       status: "",
+      operation: "",
       search: "",
       ...initialFilters
     }
@@ -53,6 +55,7 @@ export function LogFilters({ initialFilters, onChange }: LogFiltersProps) {
 
   const feedId = watch("feedId") ?? "";
   const status = watch("status") ?? "";
+  const operation = watch("operation") ?? "";
 
   const ALL_OPTION = "all";
 
@@ -60,6 +63,7 @@ export function LogFilters({ initialFilters, onChange }: LogFiltersProps) {
     reset({
       feedId: initialFilters?.feedId ?? "",
       status: initialFilters?.status ?? "",
+      operation: initialFilters?.operation ?? "",
       search: initialFilters?.search ?? ""
     });
   }, [initialFilters, reset]);
@@ -69,6 +73,8 @@ export function LogFilters({ initialFilters, onChange }: LogFiltersProps) {
       ...values,
       feedId: values.feedId && values.feedId !== ALL_OPTION ? values.feedId : undefined,
       status: values.status && values.status !== ALL_OPTION ? values.status : undefined,
+      operation:
+        values.operation && values.operation !== ALL_OPTION ? values.operation : undefined,
       search: values.search ? values.search : undefined
     });
   }
@@ -77,6 +83,7 @@ export function LogFilters({ initialFilters, onChange }: LogFiltersProps) {
     reset({
       feedId: "",
       status: "",
+      operation: "",
       search: ""
     });
     onChange({});
@@ -84,7 +91,7 @@ export function LogFilters({ initialFilters, onChange }: LogFiltersProps) {
 
   return (
     <form
-      className="grid gap-4 rounded-lg border bg-card p-4 lg:grid-cols-4"
+      className="grid gap-4 rounded-lg border bg-card p-4 lg:grid-cols-5"
       onSubmit={handleSubmit(submit)}
     >
       <div>
@@ -93,7 +100,7 @@ export function LogFilters({ initialFilters, onChange }: LogFiltersProps) {
         </Label>
         <Select
           value={feedId.length > 0 ? feedId : ALL_OPTION}
-          onValueChange={(value) => {
+          onValueChange={(value: string) => {
             setValue("feedId", value === ALL_OPTION ? "" : value, { shouldDirty: true });
             void handleSubmit(submit)();
           }}
@@ -117,7 +124,7 @@ export function LogFilters({ initialFilters, onChange }: LogFiltersProps) {
         </Label>
         <Select
           value={status.length > 0 ? status : ALL_OPTION}
-          onValueChange={(value) => {
+          onValueChange={(value: string) => {
             setValue("status", value === ALL_OPTION ? "" : value, { shouldDirty: true });
             void handleSubmit(submit)();
           }}
@@ -130,6 +137,27 @@ export function LogFilters({ initialFilters, onChange }: LogFiltersProps) {
             <SelectItem value="success">Success</SelectItem>
             <SelectItem value="failure">Failure</SelectItem>
             <SelectItem value="running">Running</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label className="mb-1 block text-xs uppercase text-muted-foreground">
+          Operation
+        </Label>
+        <Select
+          value={operation.length > 0 ? operation : ALL_OPTION}
+          onValueChange={(value: string) => {
+            setValue("operation", value === ALL_OPTION ? "" : value, { shouldDirty: true });
+            void handleSubmit(submit)();
+          }}
+        >
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="All operations" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_OPTION}>All operations</SelectItem>
+            <SelectItem value="fetch">Fetch</SelectItem>
+            <SelectItem value="feed_import">Bulk import</SelectItem>
           </SelectContent>
         </Select>
       </div>

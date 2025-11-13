@@ -189,7 +189,7 @@ export function FeedForm({ initialData, onSuccess }: FeedFormProps) {
           <Switch
             id="isActive"
             defaultChecked={initialData?.isActive ?? true}
-            onCheckedChange={(checked) =>
+            onCheckedChange={(checked: boolean) =>
               setValue("isActive", checked, { shouldDirty: true })
             }
           />

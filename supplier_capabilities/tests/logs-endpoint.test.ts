@@ -16,6 +16,7 @@ describe("logs endpoint", () => {
         id: "log-1",
         feedId: "feed-1",
         feed: { name: "Feed One" },
+        operation: "fetch",
         status: "success",
         startedAt,
         finishedAt,
@@ -58,6 +59,7 @@ describe("logs endpoint", () => {
         {
           id: "log-1",
           feedId: "feed-1",
+          operation: "fetch",
           feedName: "Feed One",
           status: "success",
           startedAt: startedAt.toISOString(),

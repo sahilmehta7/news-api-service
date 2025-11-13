@@ -7,6 +7,12 @@ import * as React from "react";
 
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -15,10 +21,24 @@ import {
 } from "@/components/ui/sheet";
 import { useAuth } from "@/components/auth/auth-context";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { cn } from "@/lib/utils";
 
-const NAV_LINKS = [
+type NavLink = {
+  label: string;
+  href: string;
+  children?: Array<{ label: string; href: string }>;
+};
+
+const NAV_LINKS: NavLink[] = [
   { href: "/dashboard", label: "Overview" },
-  { href: "/feeds", label: "Feeds" },
+  {
+    href: "/feeds",
+    label: "Feeds",
+    children: [
+      { href: "/feeds", label: "All feeds" },
+      { href: "/feeds/import", label: "Bulk import" }
+    ]
+  },
   { href: "/articles", label: "Articles" },
   { href: "/metrics", label: "Metrics" },
   { href: "/logs", label: "Fetch Logs" },
@@ -43,17 +63,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </Link>
             <nav className="hidden items-center gap-4 text-sm font-medium lg:flex">
               {NAV_LINKS.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={
-                    pathname === link.href
-                      ? "text-primary underline underline-offset-4"
-                      : "text-muted-foreground transition-colors hover:text-foreground"
-                  }
-                >
-                  {link.label}
-                </Link>
+                <DesktopNavItem key={link.href} link={link} pathname={pathname} />
               ))}
             </nav>
           </div>
@@ -80,6 +90,58 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function DesktopNavItem({ link, pathname }: { link: NavLink; pathname: string }) {
+  const isActive = link.children
+    ? pathname.startsWith(link.href)
+    : pathname === link.href;
+
+  if (link.children) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              "rounded-md px-2 py-1 text-sm transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+              isActive ? "text-primary underline underline-offset-4" : "text-muted-foreground"
+            )}
+          >
+            {link.label}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          {link.children.map((child) => (
+            <DropdownMenuItem key={child.href} asChild>
+              <Link
+                href={child.href}
+                className={cn(
+                  "w-full",
+                  pathname === child.href ? "font-semibold text-primary" : "text-muted-foreground"
+                )}
+              >
+                {child.label}
+              </Link>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  return (
+    <Link
+      href={link.href}
+      className={
+        isActive
+          ? "text-primary underline underline-offset-4"
+          : "text-muted-foreground transition-colors hover:text-foreground"
+      }
+    >
+      {link.label}
+    </Link>
+  );
+}
+
 function MobileNav({ pathname }: { pathname: string }) {
   return (
     <Sheet>
@@ -93,23 +155,60 @@ function MobileNav({ pathname }: { pathname: string }) {
         <SheetHeader>
           <SheetTitle>Navigation</SheetTitle>
         </SheetHeader>
-        <nav className="flex flex-col gap-3">
+        <nav className="flex flex-col gap-4">
           {NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={
-                pathname === link.href
-                  ? "font-semibold text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }
-            >
-              {link.label}
-            </Link>
+            <MobileNavItem key={link.href} link={link} pathname={pathname} />
           ))}
         </nav>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function MobileNavItem({ link, pathname }: { link: NavLink; pathname: string }) {
+  const isActive = link.children
+    ? link.children.some((child) => pathname.startsWith(child.href))
+    : pathname === link.href;
+
+  if (link.children) {
+    return (
+      <div className="flex flex-col gap-2">
+        <span className={isActive ? "font-semibold text-primary" : "text-muted-foreground"}>
+          {link.label}
+        </span>
+        <div className="ml-4 flex flex-col gap-2">
+          {link.children.map((child) => {
+            const childActive = pathname === child.href;
+            return (
+              <Link
+                key={child.href}
+                href={child.href}
+                className={
+                  childActive
+                    ? "text-sm font-semibold text-foreground"
+                    : "text-sm text-muted-foreground hover:text-foreground"
+                }
+              >
+                {child.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={link.href}
+      className={
+        isActive
+          ? "font-semibold text-primary"
+          : "text-muted-foreground hover:text-foreground"
+      }
+    >
+      {link.label}
+    </Link>
   );
 }
 

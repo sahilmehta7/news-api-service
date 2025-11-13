@@ -33,6 +33,15 @@ export const feedInputSchema = z.object({
 
 export type FeedInput = z.infer<typeof feedInputSchema>;
 
+export const bulkImportPayloadSchema = z.union([
+  z.object({
+    feeds: z.array(feedInputSchema)
+  }),
+  z.array(feedInputSchema)
+]);
+
+export type BulkImportPayload = z.infer<typeof bulkImportPayloadSchema>;
+
 export const articleSchema = z.object({
   id: z.string().uuid(),
   feedId: z.string().uuid(),
@@ -86,8 +95,9 @@ export const feedListResponseSchema = z.object({
 
 export const logEntrySchema = z.object({
   id: z.string().uuid(),
-  feedId: z.string().uuid(),
+  feedId: z.string().uuid().nullable(),
   feedName: z.string().nullable(),
+  operation: z.enum(["fetch", "feed_import"]),
   status: z.string(),
   startedAt: z.string(),
   finishedAt: z.string().nullable(),
@@ -109,4 +119,38 @@ export const logListResponseSchema = z.object({
     hasNextPage: z.boolean()
   })
 });
+
+export const bulkImportSummarySchema = z.object({
+  total: z.number().int().nonnegative(),
+  succeeded: z.number().int().nonnegative(),
+  failed: z.number().int().nonnegative(),
+  skipped: z.number().int().nonnegative(),
+  overallStatus: z.enum(["success", "failure", "partial_success"])
+});
+
+export const bulkImportResultSchema = z.object({
+  index: z.number().int().nonnegative(),
+  name: z.string(),
+  url: z.string(),
+  status: z.enum(["success", "failure", "skipped"]),
+  reason: z.string().nullable().optional(),
+  validation: z
+    .object({
+      isValid: z.boolean(),
+      statusCode: z.number().nullable().optional(),
+      error: z.string().nullable().optional()
+    })
+    .nullable()
+    .optional(),
+  feed: feedSchema.nullable().optional()
+});
+
+export const bulkImportResponseSchema = z.object({
+  summary: bulkImportSummarySchema,
+  results: z.array(bulkImportResultSchema)
+});
+
+export type BulkImportSummary = z.infer<typeof bulkImportSummarySchema>;
+export type BulkImportResult = z.infer<typeof bulkImportResultSchema>;
+export type BulkImportResponse = z.infer<typeof bulkImportResponseSchema>;
 

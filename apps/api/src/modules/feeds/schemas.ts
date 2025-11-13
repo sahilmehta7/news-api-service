@@ -52,3 +52,17 @@ export const feedResponseSchema = z.object({
 
 export type FeedResponse = z.infer<typeof feedResponseSchema>;
 
+export const bulkImportFeedsSchema = z
+  .union([
+    z.object({
+      feeds: z.array(createFeedSchema)
+    }),
+    z.array(createFeedSchema)
+  ])
+  .transform((value) => (Array.isArray(value) ? value : value.feeds))
+  .refine((feeds) => feeds.length > 0, {
+    message: "At least one feed must be provided for import"
+  });
+
+export type BulkImportFeedInput = z.infer<typeof createFeedSchema>;
+

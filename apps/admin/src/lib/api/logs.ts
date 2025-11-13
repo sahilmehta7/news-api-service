@@ -11,6 +11,7 @@ export type LogsQuery = {
   pageSize?: number;
   feedId?: string;
   status?: string;
+  operation?: string;
   search?: string;
 };
 

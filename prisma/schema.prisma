@@ -43,6 +43,13 @@ enum FetchStatus {
   skipped
 }
 
+enum LogOperation {
+  fetch
+  feed_import
+
+  @@map("log_operation")
+}
+
 model Feed {
   id                   String      @id @default(uuid()) @db.Uuid
   name                 String
@@ -119,17 +126,18 @@ model ArticleMetadata {
 }
 
 model FetchLog {
-  id           String      @id @default(uuid()) @db.Uuid
-  feedId       String      @map("feed_id") @db.Uuid
+  id           String       @id @default(uuid()) @db.Uuid
+  feedId       String?      @map("feed_id") @db.Uuid
+  operation    LogOperation @default(fetch)
   status       FetchStatus
-  startedAt    DateTime    @default(now()) @map("started_at") @db.Timestamptz(6)
-  finishedAt   DateTime?   @map("finished_at") @db.Timestamptz(6)
-  errorMessage String?     @map("error_message")
-  errorStack   String?     @map("error_stack")
-  metrics      Json?       @map("metrics")
-  context      Json?       @map("context")
+  startedAt    DateTime     @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt   DateTime?    @map("finished_at") @db.Timestamptz(6)
+  errorMessage String?      @map("error_message")
+  errorStack   String?      @map("error_stack")
+  metrics      Json?        @map("metrics")
+  context      Json?        @map("context")
 
-  feed Feed @relation(fields: [feedId], references: [id], onDelete: Cascade)
+  feed Feed? @relation(fields: [feedId], references: [id], onDelete: Cascade)
 
   @@map("fetch_logs")
 }
