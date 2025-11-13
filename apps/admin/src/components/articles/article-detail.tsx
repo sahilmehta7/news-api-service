@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { Article } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
-import { retryArticleEnrichment } from "@/lib/api/articles";
+import { retryArticleEnrichment, useArticleDetail } from "@/lib/api/articles";
 import { toast } from "sonner";
 
 type ArticleDetailProps = {
@@ -32,20 +32,43 @@ export function ArticleDetail({
 }: ArticleDetailProps) {
   const [copied, setCopied] = React.useState(false);
   const [isRetrying, setIsRetrying] = React.useState(false);
+  const [isFetchingFullContent, setIsFetchingFullContent] = React.useState(false);
+  const [showRawHtml, setShowRawHtml] = React.useState(false);
+
+  const activeArticleId = open && article ? article.id : null;
+
+  const { data: detailedArticle, isValidating: isDetailLoading } = useArticleDetail(
+    activeArticleId,
+    {
+      includeRaw: showRawHtml,
+      fallbackData: article ?? undefined
+    }
+  );
+
+  const currentArticle = detailedArticle ?? article ?? null;
 
   React.useEffect(() => {
     if (!open) {
       setCopied(false);
       setIsRetrying(false);
+      setIsFetchingFullContent(false);
+      setShowRawHtml(false);
     }
   }, [open]);
 
-  const enrichmentStatus = article?.enrichmentStatus ?? "pending";
+  const enrichmentStatus = currentArticle?.enrichmentStatus ?? "pending";
+  const hasFullContent = Boolean(
+    currentArticle?.hasFullContent ??
+      detailedArticle?.hasFullContent ??
+      currentArticle?.contentPlain ??
+      detailedArticle?.rawContentHtml
+  );
+  const hasRawHtml = Boolean(detailedArticle?.rawContentHtml);
 
   async function handleCopyUrl() {
-    if (!article?.sourceUrl) return;
+    if (!currentArticle?.sourceUrl) return;
     try {
-      await navigator.clipboard.writeText(article.sourceUrl);
+      await navigator.clipboard.writeText(currentArticle.sourceUrl);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -53,13 +76,13 @@ export function ArticleDetail({
     }
   }
   async function handleRetryEnrichment() {
-    if (!article) return;
+    if (!currentArticle) return;
     try {
       setIsRetrying(true);
-      await retryArticleEnrichment(article.id);
+      await retryArticleEnrichment(currentArticle.id);
       toast.success("Enrichment re-queued");
       onRefresh?.();
-      if (article) {
+      if (currentArticle) {
         onOpenChange(false);
       }
     } catch (error) {
@@ -72,30 +95,74 @@ export function ArticleDetail({
     }
   }
 
+  async function handleManualFetchFullContent() {
+    if (!currentArticle) return;
+    try {
+      setIsFetchingFullContent(true);
+      await retryArticleEnrichment(currentArticle.id);
+      toast.success("Full content fetch queued");
+      onRefresh?.();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to queue full content fetch";
+      console.error("Manual content fetch failed", error);
+      toast.error(message);
+    } finally {
+      setIsFetchingFullContent(false);
+    }
+  }
+
+  function handleViewFullContent() {
+    if (!currentArticle) return;
+
+    const rawHtml = detailedArticle?.rawContentHtml ?? null;
+    const plain = detailedArticle?.contentPlain ?? currentArticle.contentPlain ?? null;
+
+    if (!rawHtml && !plain) return;
+
+    const documentHtml = rawHtml ?? createHtmlDocumentFromPlain(plain ?? "");
+    const blob = new Blob([documentHtml], {
+      type: "text/html;charset=utf-8"
+    });
+    const url = URL.createObjectURL(blob);
+    const opened = window.open(url, "_blank", "noopener,noreferrer");
+
+    if (!opened) {
+      toast.error("Unable to open new tab for full content");
+    }
+
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex max-w-xl flex-1 flex-col gap-4 overflow-y-auto">
-        {article ? (
+        {currentArticle ? (
           <>
             <SheetHeader className="space-y-3 text-left">
-              <SheetTitle className="text-lg leading-tight">{article.title}</SheetTitle>
+              <SheetTitle className="text-lg leading-tight">{currentArticle.title}</SheetTitle>
               <div className="space-y-1 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline">{article.feedName}</Badge>
-                  {article.feedCategory ? (
-                    <Badge variant="secondary">{article.feedCategory}</Badge>
+                  <Badge variant="outline">{currentArticle.feedName}</Badge>
+                  {currentArticle.feedCategory ? (
+                    <Badge variant="secondary">{currentArticle.feedCategory}</Badge>
                   ) : null}
                   <StatusChip status={enrichmentStatus} />
+                  {isDetailLoading ? (
+                    <span className="text-xs text-muted-foreground">Refreshing details…</span>
+                  ) : null}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {article.publishedAt ? `Published ${formatDate(article.publishedAt)} · ` : null}
-                  Fetched {formatDate(article.fetchedAt)}
+                  {currentArticle.publishedAt
+                    ? `Published ${formatDate(currentArticle.publishedAt)} · `
+                    : null}
+                  Fetched {formatDate(currentArticle.fetchedAt)}
                 </div>
               </div>
             </SheetHeader>
 
             <div className="flex flex-wrap gap-2">
-              <Button variant="default" size="sm" onClick={() => window.open(article.sourceUrl, "_blank")}>
+              <Button variant="default" size="sm" onClick={() => window.open(currentArticle.sourceUrl, "_blank")}>
                 <ExternalLink className="mr-2 h-4 w-4" />
                 Open article
               </Button>
@@ -103,7 +170,23 @@ export function ArticleDetail({
                 <Copy className="mr-2 h-4 w-4" />
                 {copied ? "Copied" : "Copy URL"}
               </Button>
-              {article.enrichmentStatus === "failed" ? (
+              {hasFullContent ? (
+                <Button variant="secondary" size="sm" onClick={handleViewFullContent}>
+                  View full content
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleManualFetchFullContent}
+                  disabled={isFetchingFullContent}
+                  className="gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  {isFetchingFullContent ? "Fetching..." : "Fetch full content"}
+                </Button>
+              )}
+              {currentArticle.enrichmentStatus === "failed" ? (
                 <Button
                   variant="secondary"
                   size="sm"
@@ -122,20 +205,57 @@ export function ArticleDetail({
             <section className="space-y-2">
               <SectionTitle>Summary</SectionTitle>
               <p className="rounded-md border bg-muted/30 p-3 text-sm leading-relaxed">
-                {article.summary ?? "No summary available."}
+                {currentArticle.summary ?? "No summary available."}
               </p>
             </section>
 
             <section className="grid gap-3">
+              <div className="flex items-center justify-between gap-2">
+                <SectionTitle>Article Content</SectionTitle>
+                <Badge
+                  variant={hasFullContent ? "default" : "outline"}
+                  className={hasFullContent ? "bg-emerald-100 text-emerald-700" : "text-muted-foreground"}
+                >
+                  {hasFullContent ? "Full content available" : "Full content missing"}
+                </Badge>
+              </div>
+              <div className="space-y-2">
+                <div className="rounded-md border bg-muted/20 p-3 text-sm leading-relaxed">
+                  {currentArticle.contentPlain ?? currentArticle.content ?? "No extracted content available."}
+                </div>
+                {hasRawHtml ? (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowRawHtml((value) => !value)}
+                      disabled={isDetailLoading && showRawHtml}
+                    >
+                      {showRawHtml ? "Hide raw HTML" : "Preview raw HTML"}
+                    </Button>
+                    {showRawHtml && isDetailLoading ? (
+                      <span className="text-xs text-muted-foreground">Loading raw content…</span>
+                    ) : null}
+                  </div>
+                ) : null}
+                {showRawHtml && hasRawHtml ? (
+                  <pre className="max-h-64 overflow-auto rounded-md border bg-background p-3 text-xs leading-relaxed">
+                    {detailedArticle?.rawContentHtml ?? "No raw HTML captured."}
+                  </pre>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="grid gap-3">
               <SectionTitle>Metadata</SectionTitle>
-              <MetadataGrid article={article} />
+              <MetadataGrid article={currentArticle} />
             </section>
 
             <section className="grid gap-3">
               <SectionTitle>Enrichment Signals</SectionTitle>
-              <JsonViewer label="Open Graph" data={article.openGraph} />
-              <JsonViewer label="Twitter Card" data={article.twitterCard} />
-              <JsonViewer label="Custom Metadata" data={article.metadata} />
+              <JsonViewer label="Open Graph" data={currentArticle.openGraph} />
+              <JsonViewer label="Twitter Card" data={currentArticle.twitterCard} />
+              <JsonViewer label="Custom Metadata" data={currentArticle.metadata} />
             </section>
 
             <section className="grid gap-3">
@@ -149,28 +269,28 @@ export function ArticleDetail({
                   <li>Validate the feed entry on the source URL above.</li>
                   <li>
                     Review recent fetch attempts in the{" "}
-                    <a className="underline" href={`/logs?feedId=${article.feedId}`}>
+                    <a className="underline" href={`/logs?feedId=${currentArticle.feedId}`}>
                       logs view
                     </a>
                     .
                   </li>
                   <li>
                     Check enrichment worker metrics for elevated failure rates on the{" "}
-                    <a className="underline" href={`/metrics?feedId=${article.feedId}`}>
+                    <a className="underline" href={`/metrics?feedId=${currentArticle.feedId}`}>
                       metrics dashboard
                     </a>
                     .
                   </li>
                 </ul>
               </div>
-              {article.enrichmentStatus === "failed" ? (
+              {currentArticle.enrichmentStatus === "failed" ? (
                 <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-xs leading-relaxed text-destructive">
                   <p className="mb-2 flex items-center gap-2 font-medium">
                     <Info className="h-4 w-4" />
                     Enrichment Failure Context
                   </p>
                   <pre className="overflow-x-auto whitespace-pre-wrap text-[11px]">
-                    {article.errorMessage ?? "Unknown error"}
+                    {currentArticle.errorMessage ?? "Unknown error"}
                   </pre>
                 </div>
               ) : null}
@@ -262,5 +382,43 @@ function StatusChip({ status }: { status: string }) {
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString();
+}
+
+function createHtmlDocumentFromPlain(content: string) {
+  const escaped = escapeHtml(content);
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Article Content</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 2rem; line-height: 1.6; }
+      pre { white-space: pre-wrap; word-break: break-word; font-family: inherit; }
+    </style>
+  </head>
+  <body>
+    <pre>${escaped}</pre>
+  </body>
+</html>`;
+}
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => {
+    switch (character) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      case "'":
+        return "&#39;";
+      default:
+        return character;
+    }
+  });
 }
 

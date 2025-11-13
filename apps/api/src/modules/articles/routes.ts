@@ -1,12 +1,13 @@
 import type { FastifyInstance } from "fastify";
-import { Prisma, ArticleStatus } from "@news-api/db";
+import { Prisma, ArticleStatus, EnrichmentStatus } from "@news-api/db";
 
 import {
   articleIdSchema,
   articleListQuerySchema,
   articleListResponseSchema,
   articleResponseSchema,
-  type ArticleResponse
+  type ArticleResponse,
+  articleDetailQuerySchema
 } from "./schemas.js";
 
 type RawArticleRow = {
@@ -38,6 +39,8 @@ type RawArticleRow = {
   error_message: string | null;
   relevance: number | null;
   total: bigint | number | null;
+  content_plain_available: boolean;
+  raw_content_available: boolean;
 };
 
 export async function registerArticleRoutes(app: FastifyInstance) {
@@ -172,6 +175,8 @@ export async function registerArticleRoutes(app: FastifyInstance) {
           am.twitter_card,
           am.metadata,
           am.error_message,
+          CASE WHEN am.content_plain IS NOT NULL THEN TRUE ELSE FALSE END AS content_plain_available,
+          CASE WHEN am.raw_content_html IS NOT NULL THEN TRUE ELSE FALSE END AS raw_content_available,
           ${relevanceExpr} AS relevance,
           COUNT(*) OVER() AS total
         FROM articles a
@@ -207,6 +212,7 @@ export async function registerArticleRoutes(app: FastifyInstance) {
     },
     async (request, reply) => {
       const params = articleIdSchema.parse(request.params);
+      const query = articleDetailQuerySchema.parse(request.query);
 
       const article = await app.db.article.findUnique({
         where: { id: params.id },
@@ -230,8 +236,55 @@ export async function registerArticleRoutes(app: FastifyInstance) {
       }
 
       return articleResponseSchema.parse(
-        serializeArticleEntity(article)
+        serializeArticleEntity(article, { includeRawHtml: query.includeRaw })
       );
+    }
+  );
+
+  app.post(
+    "/articles/retry-enrichment/bulk",
+    {
+      preHandler: app.verifyAdmin
+    },
+    async (_request, reply) => {
+      const result = await app.db.$transaction(async (tx) => {
+        const failedArticles = await tx.articleMetadata.findMany({
+          where: { enrichmentStatus: EnrichmentStatus.failed },
+          select: { articleId: true }
+        });
+
+        const articleIds = failedArticles
+          .map((item) => item.articleId)
+          .filter((id): id is string => Boolean(id));
+
+        if (articleIds.length === 0) {
+          return { updated: 0 };
+        }
+
+        await tx.articleMetadata.updateMany({
+          where: { articleId: { in: articleIds } },
+          data: {
+            enrichmentStatus: EnrichmentStatus.pending,
+            retries: 0,
+            enrichedAt: null,
+            errorMessage: null
+          }
+        });
+
+        await tx.article.updateMany({
+          where: { id: { in: articleIds } },
+          data: {
+            status: ArticleStatus.ingested
+          }
+        });
+
+        return { updated: articleIds.length };
+      });
+
+      reply.code(202).send({
+        status: "queued",
+        updated: result.updated
+      });
     }
   );
 
@@ -292,6 +345,8 @@ function serializeRawArticle(row: RawArticleRow): ArticleResponse {
     title: row.title,
     summary: row.summary,
     content: row.content,
+    contentPlain: row.content,
+    hasFullContent: row.content_plain_available || row.raw_content_available,
     sourceUrl: row.source_url,
     canonicalUrl: row.canonical_url,
     author: row.author,
@@ -348,11 +403,13 @@ function serializeArticleEntity(article: {
     readingTimeSeconds: number | null;
     wordCount: number | null;
     errorMessage: string | null;
+    contentPlain: string | null;
+    rawContentHtml: string | null;
   } | null;
-}): ArticleResponse {
+}, options: { includeRawHtml?: boolean } = {}): ArticleResponse {
   const meta = article.articleMetadata;
 
-  return articleResponseSchema.parse({
+  const payload: Record<string, unknown> = {
     id: article.id,
     feedId: article.feedId,
     feedName: article.feed.name,
@@ -360,6 +417,9 @@ function serializeArticleEntity(article: {
     title: article.title,
     summary: article.summary,
     content: article.content,
+    contentPlain: meta?.contentPlain ?? article.content ?? null,
+    hasFullContent:
+      Boolean(meta?.contentPlain) || Boolean(meta?.rawContentHtml),
     sourceUrl: article.sourceUrl,
     canonicalUrl: article.canonicalUrl,
     author: article.author,
@@ -382,7 +442,13 @@ function serializeArticleEntity(article: {
     relevance: undefined,
     createdAt: article.createdAt.toISOString(),
     updatedAt: article.updatedAt.toISOString()
-  });
+  };
+
+  if (options.includeRawHtml) {
+    payload.rawContentHtml = meta?.rawContentHtml ?? null;
+  }
+
+  return articleResponseSchema.parse(payload);
 }
 
 function ensureStringArray(value: unknown): string[] {

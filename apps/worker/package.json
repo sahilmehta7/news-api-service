@@ -17,6 +17,8 @@
     "@news-api/db": "0.1.0",
     "@news-api/logger": "0.1.0",
     "@news-api/shared": "0.1.0",
+    "@mozilla/readability": "^0.5.0",
+    "jsdom": "^25.0.0",
     "node-html-parser": "^6.1.10",
     "p-queue": "^8.0.1",
     "prom-client": "^15.1.3",

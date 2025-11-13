@@ -80,6 +80,13 @@
     -H "X-API-Key: ${API_ADMIN_KEY}" \
     "{{baseUrl}}/articles/<articleId>/retry-enrichment"
   ```
+- **Bulk retry enrichment for failed articles**  
+  Use the “Retry failed enrichment” action on the Articles page or run:  
+  ```bash
+  curl -X POST \
+    -H "X-API-Key: ${API_ADMIN_KEY}" \
+    "{{baseUrl}}/articles/retry-enrichment/bulk"
+  ```
 - **Remove historical duplicates (global `source_url` check)**  
   ```bash
   npm run cleanup:dedupe-articles

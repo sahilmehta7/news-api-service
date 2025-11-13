@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { articleListQuerySchema } from "../../apps/api/src/modules/articles/schemas.js";
+import {
+  articleListQuerySchema,
+  articleDetailQuerySchema
+} from "../../apps/api/src/modules/articles/schemas.js";
 
 describe("articleListQuerySchema", () => {
   it("applies defaults and transforms query params", () => {
@@ -31,6 +34,18 @@ describe("articleListQuerySchema", () => {
     expect(parsed.sort).toBe("publishedAt");
     expect(parsed.order).toBe("desc");
     expect(parsed.keywords).toEqual([]);
+  });
+});
+
+describe("articleDetailQuerySchema", () => {
+  it("returns includeRaw flag when truthy string is provided", () => {
+    const parsed = articleDetailQuerySchema.parse({ includeRaw: "true" });
+    expect(parsed.includeRaw).toBe(true);
+  });
+
+  it("defaults includeRaw to false", () => {
+    const parsed = articleDetailQuerySchema.parse({});
+    expect(parsed.includeRaw).toBe(false);
   });
 });
 

@@ -3,7 +3,9 @@ import useSWR from "swr";
 import { apiClient } from "./client";
 import {
   articleListResponseSchema,
-  type ArticleListResponse
+  type ArticleListResponse,
+  articleSchema,
+  type Article
 } from "./types";
 
 export type ArticleQuery = {
@@ -48,7 +50,42 @@ export function getDefaultArticleQuery(): ArticleQuery {
   };
 }
 
+export function useArticleDetail(
+  articleId: string | null,
+  options: { includeRaw?: boolean; fallbackData?: Article | undefined } = {}
+) {
+  const includeRaw = options.includeRaw ?? false;
+  const key = articleId
+    ? `/articles/${articleId}${includeRaw ? "?includeRaw=true" : ""}`
+    : null;
+
+  return useSWR<Article>(
+    key,
+    async (path: string) => {
+      const data = await apiClient.get<Article>(path);
+      return articleSchema.parse(data);
+    },
+    {
+      fallbackData: options.fallbackData,
+      keepPreviousData: true,
+      revalidateOnFocus: false
+    }
+  );
+}
+
 export async function retryArticleEnrichment(articleId: string) {
   await apiClient.post(`/articles/${articleId}/retry-enrichment`, {});
+}
+
+type BulkRetryResponse = {
+  status: string;
+  updated: number;
+};
+
+export async function retryFailedArticlesEnrichment() {
+  return apiClient.post<BulkRetryResponse>(
+    "/articles/retry-enrichment/bulk",
+    {}
+  );
 }
 

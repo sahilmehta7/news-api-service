@@ -321,8 +321,7 @@ export async function registerFeedRoutes(app: FastifyInstance) {
       await app.db.feed.update({
         where: { id: params.id },
         data: {
-          lastFetchAt: dueAt,
-          lastFetchStatus: "scheduled"
+          lastFetchAt: dueAt
         }
       });
 

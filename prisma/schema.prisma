@@ -100,6 +100,8 @@ model ArticleMetadata {
   enrichmentStatus   EnrichmentStatus @default(pending) @map("enrichment_status")
   enrichedAt         DateTime?        @map("enriched_at") @db.Timestamptz(6)
   retries            Int              @default(0)
+  rawContentHtml     String?          @map("raw_content_html") @db.Text
+  contentPlain       String?          @map("content_plain") @db.Text
   openGraph          Json?            @map("open_graph")
   twitterCard        Json?            @map("twitter_card")
   metadata           Json?

@@ -85,6 +85,9 @@ export const articleResponseSchema = z.object({
   title: z.string(),
   summary: z.string().nullable(),
   content: z.string().nullable(),
+  contentPlain: z.string().nullable(),
+  rawContentHtml: z.string().nullable().optional(),
+  hasFullContent: z.boolean().default(false),
   sourceUrl: z.string(),
   canonicalUrl: z.string().nullable(),
   author: z.string().nullable(),
@@ -118,6 +121,19 @@ export const articleListResponseSchema = z.object({
     hasNextPage: z.boolean()
   })
 });
+
+export const articleDetailQuerySchema = z
+  .object({
+    includeRaw: z
+      .string()
+      .optional()
+      .transform((value) =>
+        value ? ["true", "1", "yes"].includes(value.toLowerCase()) : false
+      )
+  })
+  .transform((value) => ({
+    includeRaw: value.includeRaw ?? false
+  }));
 
 export type ArticleResponse = z.infer<typeof articleResponseSchema>;
 

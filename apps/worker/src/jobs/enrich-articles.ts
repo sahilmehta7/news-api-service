@@ -7,6 +7,7 @@ import {
 import type { WorkerContext } from "../context.js";
 import { fetchHtml } from "../lib/fetch-html.js";
 import { extractMetadataFromHtml } from "../lib/html-metadata.js";
+import { extractArticleContent } from "../lib/article-content.js";
 import { workerMetrics } from "../metrics/registry.js";
 
 const MAX_RETRIES = 3;
@@ -237,6 +238,7 @@ async function enrichArticle(
     );
 
     const metadataResult = extractMetadataFromHtml(html, targetUrl);
+    const contentResult = extractArticleContent(html, targetUrl);
 
     await db.$transaction([
       db.articleMetadata.update({
@@ -252,8 +254,11 @@ async function enrichArticle(
           heroImageUrl: metadataResult.heroImageUrl,
           contentType: metadataResult.contentType ?? contentType ?? null,
           languageConfidence: metadataResult.languageConfidence as Prisma.JsonObject,
-          readingTimeSeconds: metadataResult.readingTimeSeconds,
-          wordCount: metadataResult.wordCount,
+          readingTimeSeconds:
+            metadataResult.readingTimeSeconds ?? deriveReadingTime(contentResult.wordCount),
+          wordCount: contentResult.wordCount ?? metadataResult.wordCount,
+          rawContentHtml: contentResult.rawHtml,
+          contentPlain: contentResult.contentPlain,
           errorMessage: null
         }
       }),
@@ -261,7 +266,8 @@ async function enrichArticle(
         where: { id: article.articleId },
         data: {
           language: metadataResult.language ?? article.language,
-          status: ArticleStatus.enriched
+          status: ArticleStatus.enriched,
+          content: contentResult.contentPlain ?? metadataResult.description ?? article.title
         }
       })
     ]);
@@ -271,7 +277,9 @@ async function enrichArticle(
         articleId: article.articleId,
         feedId: article.feedId,
         language: metadataResult.language ?? article.language,
-        readingTimeSeconds: metadataResult.readingTimeSeconds
+        readingTimeSeconds:
+          metadataResult.readingTimeSeconds ?? deriveReadingTime(contentResult.wordCount),
+        wordCount: contentResult.wordCount ?? metadataResult.wordCount
       },
       "Article enrichment succeeded"
     );
@@ -315,5 +323,13 @@ async function enrichArticle(
     });
     timer({ status: "failure" });
   }
+}
+
+function deriveReadingTime(wordCount: number | null): number | null {
+  if (!wordCount || wordCount <= 0) {
+    return null;
+  }
+
+  return Math.ceil((wordCount / 200) * 60);
 }
 
