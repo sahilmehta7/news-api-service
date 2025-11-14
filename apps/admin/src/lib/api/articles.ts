@@ -51,10 +51,18 @@ export function useArticles(query: ArticleQuery) {
   }
 
   const key = `${endpoint}?${searchParams.toString()}`;
-  return useSWR<ArticleListResponse>(key, async () => {
-    const data = await apiClient.get<ArticleListResponse>(key);
-    return articleListResponseSchema.parse(data);
-  });
+  return useSWR<ArticleListResponse>(
+    key,
+    async () => {
+      const data = await apiClient.get<ArticleListResponse>(key);
+      return articleListResponseSchema.parse(data);
+    },
+    {
+      keepPreviousData: true,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+    }
+  );
 }
 
 export function getDefaultArticleQuery(): ArticleQuery {

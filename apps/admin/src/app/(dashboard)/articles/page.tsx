@@ -3,11 +3,33 @@
 import * as React from "react";
 import { useQueryStates, parseAsInteger, parseAsString, parseAsStringEnum } from "nuqs";
 import { RefreshCw } from "lucide-react";
+import dynamic from "next/dynamic";
 
-import { ArticleFilters, type ArticleFiltersValue } from "@/components/articles/article-filters";
 import { ArticleTable } from "@/components/articles/article-table";
 import { ArticleToolbar, type SortKey } from "@/components/articles/article-toolbar";
-import { ArticleDetail } from "@/components/articles/article-detail";
+import type { ArticleFiltersValue } from "@/components/articles/article-filters";
+
+// Dynamically import heavy components to reduce initial bundle size
+const ArticleDetail = dynamic(
+  () => import("@/components/articles/article-detail").then((mod) => ({ default: mod.ArticleDetail })),
+  {
+    loading: () => null,
+    ssr: false,
+  }
+);
+
+const ArticleFilters = dynamic(
+  () => import("@/components/articles/article-filters").then((mod) => ({ default: mod.ArticleFilters })),
+  {
+    loading: () => (
+      <div className="rounded-lg border p-4">
+        <div className="text-sm text-muted-foreground">Loading filters...</div>
+      </div>
+    ),
+    ssr: false,
+  }
+);
+
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
