@@ -38,8 +38,7 @@ const ArticleDetail = dynamic<ArticleDetailProps>(
       default: module.ArticleDetail
     })),
   {
-    ssr: false,
-    suspense: true
+    ssr: false
   }
 );
 const DEFAULT_PAGE_SIZE = 20;
