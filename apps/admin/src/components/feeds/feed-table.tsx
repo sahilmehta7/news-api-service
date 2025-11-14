@@ -14,9 +14,9 @@ import {
 } from "@/components/ui/table";
 import { CreateFeedDialog, EditFeedDialog } from "@/components/feeds/feed-dialogs";
 import { useFeedList, deleteFeed, requestFeedIngestion } from "@/lib/api/feeds";
-import { formatDistanceToNow } from "date-fns";
 import { Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { formatRelativeTime } from "@/lib/utils/format-relative-time";
 
 export function FeedTable() {
   const {
@@ -150,11 +150,7 @@ export function FeedTable() {
                     </div>
                   </TableCell>
                   <TableCell className="text-sm">
-                    {feed.lastFetchAt
-                      ? formatDistanceToNow(new Date(feed.lastFetchAt), {
-                          addSuffix: true
-                        })
-                      : "Never"}
+                    {feed.lastFetchAt ? formatRelativeTime(feed.lastFetchAt) : "Never"}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

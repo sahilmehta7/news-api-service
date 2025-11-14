@@ -14,8 +14,8 @@ import {
   RefreshCw,
   Search
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { formatRelativeTime } from "@/lib/utils/format-relative-time";
 
 import { FeedStats } from "@/components/feeds/feed-stats";
 import { CreateFeedDialog, EditFeedDialog } from "@/components/feeds/feed-dialogs";
@@ -166,7 +166,7 @@ function FeedExplorerContent({
     keepPreviousData: true
   });
 
-  const feeds = data?.data ?? [];
+  const feeds = React.useMemo(() => data?.data ?? [], [data]);
   const summary = data?.summary;
   const pagination = data?.pagination;
 
@@ -622,11 +622,9 @@ function FeedTable({
                   <TableCell className="text-sm">
                     {feed.stats.articleCount.toLocaleString()}
                   </TableCell>
-                  <TableCell className="text-sm">
-                    {feed.lastFetchAt
-                      ? formatDistanceToNow(new Date(feed.lastFetchAt), { addSuffix: true })
-                      : "Never"}
-                  </TableCell>
+                    <TableCell className="text-sm">
+                      {feed.lastFetchAt ? formatRelativeTime(feed.lastFetchAt) : "Never"}
+                    </TableCell>
                   <TableCell className="text-sm">
                     {feed.fetchIntervalMinutes} min
                   </TableCell>
@@ -784,35 +782,19 @@ function FeedDetailDrop({
           label="Last article"
           value={
             feed.stats.lastArticlePublishedAt
-              ? formatDistanceToNow(new Date(feed.stats.lastArticlePublishedAt), {
-                  addSuffix: true
-                })
+              ? formatRelativeTime(feed.stats.lastArticlePublishedAt)
               : "Unknown"
           }
         />
         <DetailStat
           label="Last fetch"
-          value={
-            feed.lastFetchAt
-              ? formatDistanceToNow(new Date(feed.lastFetchAt), { addSuffix: true })
-              : "Never"
-          }
+          value={feed.lastFetchAt ? formatRelativeTime(feed.lastFetchAt) : "Never"}
         />
         <DetailStat label="Fetch interval" value={`${feed.fetchIntervalMinutes} min`} />
       </div>
       <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-        <span>
-          Created{" "}
-          {formatDistanceToNow(new Date(feed.createdAt), {
-            addSuffix: true
-          })}
-        </span>
-        <span>
-          Updated{" "}
-          {formatDistanceToNow(new Date(feed.updatedAt), {
-            addSuffix: true
-          })}
-        </span>
+        <span>Created {formatRelativeTime(feed.createdAt)}</span>
+        <span>Updated {formatRelativeTime(feed.updatedAt)}</span>
       </div>
     </div>
   );

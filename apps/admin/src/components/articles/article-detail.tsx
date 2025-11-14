@@ -423,3 +423,5 @@ function escapeHtml(value: string) {
   });
 }
 
+export type { ArticleDetailProps };
+
