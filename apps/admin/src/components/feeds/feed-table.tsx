@@ -35,18 +35,18 @@ export function FeedTable() {
   const handleDelete = React.useCallback(
     async (id: string) => {
       const confirmed = window.confirm(
-        "Are you sure you want to delete this feed? This action cannot be undone."
+        "Are you sure you want to deactivate this feed? The feed will be marked as inactive and will no longer be fetched, but its articles will be preserved."
       );
       if (!confirmed) return;
 
       try {
         await deleteFeed(id);
-        toast.success("Feed deleted");
+        toast.success("Feed deactivated");
         void mutate();
       } catch (error) {
         console.error(error);
         toast.error(
-          error instanceof Error ? error.message : "Failed to delete feed"
+          error instanceof Error ? error.message : "Failed to deactivate feed"
         );
       }
     },
@@ -130,8 +130,9 @@ export function FeedTable() {
                 <TableRow key={feed.id}>
                   <TableCell>
                     <div className="font-medium">{feed.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {feed.category ?? "Uncategorized"}
+                    <div className="space-y-0.5 text-xs text-muted-foreground">
+                      <div>{feed.category ?? "Uncategorized"}</div>
+                      {feed.source ? <div>{feed.source.baseUrl}</div> : null}
                     </div>
                   </TableCell>
                   <TableCell className="max-w-xs truncate text-xs text-muted-foreground">

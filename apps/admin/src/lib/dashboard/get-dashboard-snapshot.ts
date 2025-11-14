@@ -5,12 +5,14 @@ import {
   feedListResponseSchema,
   logListResponseSchema,
   type Feed,
+  type FeedListResponse,
   type LogEntry,
   articleHighlightsResponseSchema,
   type ArticleHighlightsResponse
 } from "@/lib/api/types";
 import { getMetricsSummary, type MetricsSummary } from "@/lib/metrics/summary";
 import type { DashboardSnapshot } from "@/lib/dashboard/types";
+import { formatErrorMessage } from "@/lib/utils/format-error-message";
 
 const WINDOW_OFFSETS: Record<DashboardWindow, number> = {
   "12h": 12 * 60 * 60 * 1000,
@@ -45,7 +47,7 @@ export const getDashboardSnapshot = cache(
       api: computeApi(metrics),
       feedAlerts: buildFeedAlerts(feeds),
       activity: buildActivity(logs.data),
-      articles: buildArticles(highlights, metrics),
+      articles: buildArticles(highlights, metrics, feedList.summary),
       meta: {
         generatedAt: now.toISOString(),
         window: {
@@ -155,10 +157,11 @@ function buildActivity(logs: LogEntry[]): DashboardSnapshot["activity"] {
 
 function buildArticles(
   highlights: ArticleHighlightsResponse,
-  metrics: MetricsSummary
+  metrics: MetricsSummary,
+  feedSummary: FeedListResponse["summary"]
 ): DashboardSnapshot["articles"] {
   return {
-    ingested: highlights.ingested,
+    ingested: feedSummary.totalArticles,
     enriched: highlights.enriched,
     pendingEnrichment: Math.max(
       highlights.pendingEnrichment,
@@ -188,7 +191,7 @@ function buildLogLink(log: LogEntry) {
 
 function extractLogDetail(log: LogEntry) {
   if (log.errorMessage) {
-    return log.errorMessage;
+    return formatErrorMessage(log.errorMessage);
   }
   if (log.errorStack) {
     return log.errorStack;

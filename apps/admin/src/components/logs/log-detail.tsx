@@ -13,6 +13,7 @@ import type { LogEntry } from "@/lib/api/types";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { Copy } from "lucide-react";
+import { formatErrorMessage } from "@/lib/utils/format-error-message";
 
 type LogDetailProps = {
   log: LogEntry | null;
@@ -103,7 +104,7 @@ export function LogDetail({ log, open, onOpenChange }: LogDetailProps) {
               <h2 className="text-sm font-semibold uppercase text-muted-foreground">Errors</h2>
               {log.errorMessage ? (
                 <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-                  {log.errorMessage}
+                  {formatErrorMessage(log.errorMessage)}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">No errors recorded.</p>

@@ -10,9 +10,14 @@ import { loadConfig } from "@news-api/config";
 import { Prisma } from "@news-api/db";
 import dbPlugin from "./plugins/db.js";
 import authPlugin from "./plugins/auth.js";
+import embeddingsPlugin from "./plugins/embeddings.js";
 import { registerFeedRoutes } from "./modules/feeds/routes.js";
 import { registerArticleRoutes } from "./modules/articles/routes.js";
 import { registerLogRoutes } from "./modules/logs/routes.js";
+import { registerSourceRoutes } from "./modules/sources/routes.js";
+import { registerSearchRoutes } from "./modules/search/routes.js";
+import { registerSettingsRoutes } from "./modules/settings/routes.js";
+import { checkElasticsearchHealth, createElasticsearchClient } from "@news-api/search";
 import { metrics } from "./metrics/registry.js";
 
 const logger = createLogger({ name: "api" }).child({ service: "api" });
@@ -31,11 +36,17 @@ async function main() {
     loggerInstance: logger
   }) as unknown as FastifyInstance;
 
-  await server.register(cors);
+  await server.register(cors, {
+    origin: true,
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "X-API-Key"],
+    credentials: false
+  });
   await server.register(dbPlugin);
   await server.register(authPlugin, {
     adminKey: config.api.adminKey
   });
+  await server.register(embeddingsPlugin);
 
   server.addHook("onRequest", (request, _reply, done) => {
     const route = request.routeOptions.url ?? request.url;
@@ -71,14 +82,20 @@ async function main() {
     }
   );
 
-  server.get("/health", async () => ({
-    status: "ok",
-    service: "api",
-    timestamp: new Date().toISOString(),
-    checks: {
-      database: await verifyDatabase(server)
-    }
-  }));
+  const searchClient = createElasticsearchClient(config);
+
+  server.get("/health", async () => {
+    const esHealth = await checkElasticsearchHealth(searchClient);
+    return {
+      status: "ok",
+      service: "api",
+      timestamp: new Date().toISOString(),
+      checks: {
+        database: await verifyDatabase(server),
+        elasticsearch: esHealth.status === "ok" ? "up" : esHealth.status === "unavailable" ? "disabled" : "down"
+      }
+    };
+  });
 
   server.get("/metrics", async (_, reply) => {
     reply.header("Content-Type", metrics.registry.contentType);
@@ -88,6 +105,9 @@ async function main() {
   await registerFeedRoutes(server);
   await registerArticleRoutes(server);
   await registerLogRoutes(server);
+  await registerSourceRoutes(server);
+  await registerSearchRoutes(server);
+  await registerSettingsRoutes(server);
 
   try {
     await server.listen({

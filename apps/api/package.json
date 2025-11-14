@@ -13,10 +13,12 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@elastic/elasticsearch": "^8.15.0",
     "@fastify/cors": "^11.1.0",
     "@news-api/config": "0.1.0",
     "@news-api/db": "0.1.0",
     "@news-api/logger": "0.1.0",
+    "@news-api/search": "0.1.0",
     "fastify": "^5.0.0",
     "fastify-plugin": "^5.0.0",
     "prom-client": "^15.1.3",

@@ -28,6 +28,12 @@ type FeedAggregate = {
   lastArticlePublishedAt: Date | null;
 };
 
+type FeedWithSource = Prisma.FeedGetPayload<{
+  include: {
+    source: true;
+  };
+}>;
+
 const defaultFeedAggregate: FeedAggregate = {
   articleCount: 0,
   lastArticlePublishedAt: null
@@ -73,7 +79,10 @@ export async function registerFeedRoutes(app: FastifyInstance) {
         orderBy,
         cursor: cursorId ? { id: cursorId } : undefined,
         skip: cursorId ? 1 : 0,
-        take: query.limit + 1
+        take: query.limit + 1,
+        include: {
+          source: true
+        }
       });
       const facetSourcesPromise = app.db.feed.findMany({
         where: filters,
@@ -191,16 +200,10 @@ export async function registerFeedRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const payload = createFeedSchema.parse(request.body);
 
+      const createData = await mapFeedInputToCreateData(app, payload);
+
       const feed = await app.db.feed.create({
-        data: {
-          name: payload.name,
-          url: payload.url,
-          category: payload.category ?? null,
-          tags: toJsonValue(payload.tags ?? []),
-          fetchIntervalMinutes: payload.fetchIntervalMinutes ?? 30,
-          metadata: toJsonValue(payload.metadata ?? {}),
-          isActive: payload.isActive ?? true
-        }
+        data: createData
       });
 
       const response = await fetchFeedWithStats(app, feed.id);
@@ -266,8 +269,9 @@ export async function registerFeedRoutes(app: FastifyInstance) {
         }
 
         try {
+          const createData = await mapFeedInputToCreateData(app, feedInput);
           const created = await app.db.feed.create({
-            data: mapFeedInputToCreateData(feedInput)
+            data: createData
           });
 
           const feedWithStats = await fetchFeedWithStats(app, created.id);
@@ -358,7 +362,15 @@ export async function registerFeedRoutes(app: FastifyInstance) {
       const data: Prisma.FeedUpdateInput = {};
 
       if (payload.name !== undefined) data.name = payload.name;
-      if (payload.url !== undefined) data.url = payload.url;
+      if (payload.url !== undefined) {
+        data.url = payload.url;
+        const source = await ensureSource(app, payload.url);
+        data.source = {
+          connect: {
+            id: source.id
+          }
+        };
+      }
       if (payload.category !== undefined) data.category = payload.category;
       if (payload.tags !== undefined) {
         data.tags = toJsonValue(payload.tags);
@@ -411,11 +423,25 @@ export async function registerFeedRoutes(app: FastifyInstance) {
       const params = feedIdSchema.parse(request.params);
 
       try {
-        await app.db.feed.delete({
-          where: { id: params.id }
+        // Soft delete: set isActive to false instead of actually deleting
+        // This prevents cascade deletion of all articles, which can be very slow
+        const feed = await app.db.feed.update({
+          where: { id: params.id },
+          data: { isActive: false }
         });
 
-        return reply.status(204).send();
+        const response = await fetchFeedWithStats(app, feed.id);
+
+        if (!response) {
+          reply.code(404).send({
+            error: "NotFound",
+            message: `Feed ${params.id} not found`
+          });
+          return reply;
+        }
+
+        reply.code(200);
+        return response;
       } catch (error) {
         if (isNotFoundError(error)) {
           reply.code(404).send({
@@ -726,6 +752,10 @@ function buildFeedOrder(
     return [{ lastFetchAt: direction }, { id: direction }];
   }
 
+  if (sort === "articleCount") {
+    return [{ articles: { _count: direction } }, { id: direction }];
+  }
+
   return [{ createdAt: direction }, { id: direction }];
 }
 
@@ -796,7 +826,10 @@ async function fetchFeedWithStats(
   feedId: string
 ): Promise<FeedResponse | null> {
   const feed = await app.db.feed.findUnique({
-    where: { id: feedId }
+    where: { id: feedId },
+    include: {
+      source: true
+    }
   });
 
   if (!feed) {
@@ -815,9 +848,32 @@ async function fetchFeedWithStats(
   });
 }
 
-function mapFeedInputToCreateData(
+function extractBaseUrl(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch (error) {
+    throw new Error(
+      `Invalid feed URL "${url}": ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
+async function ensureSource(app: FastifyInstance, url: string) {
+  const baseUrl = extractBaseUrl(url);
+
+  return app.db.source.upsert({
+    where: { baseUrl },
+    update: {},
+    create: { baseUrl }
+  });
+}
+
+async function mapFeedInputToCreateData(
+  app: FastifyInstance,
   input: BulkImportFeedInput
-): Prisma.FeedCreateInput {
+): Promise<Prisma.FeedCreateInput> {
+  const source = await ensureSource(app, input.url);
+
   return {
     name: input.name,
     url: input.url,
@@ -825,7 +881,12 @@ function mapFeedInputToCreateData(
     tags: toJsonValue(input.tags ?? []),
     fetchIntervalMinutes: input.fetchIntervalMinutes ?? 30,
     metadata: toJsonValue(input.metadata ?? {}),
-    isActive: input.isActive ?? true
+    isActive: input.isActive ?? true,
+    source: {
+      connect: {
+        id: source.id
+      }
+    }
   };
 }
 
@@ -877,9 +938,7 @@ async function validateFeedUrl(
 }
 
 function serializeFeed(
-  feed: NonNullable<
-    Awaited<ReturnType<FastifyInstance["db"]["feed"]["findUnique"]>>
-  >,
+  feed: FeedWithSource,
   stats: FeedAggregate
 ): FeedResponse {
   return feedResponseSchema.parse({
@@ -895,6 +954,14 @@ function serializeFeed(
     metadata: ensureRecord(feed.metadata),
     createdAt: feed.createdAt.toISOString(),
     updatedAt: feed.updatedAt.toISOString(),
+    source: feed.source
+      ? {
+          id: feed.source.id,
+          baseUrl: feed.source.baseUrl,
+          createdAt: feed.source.createdAt.toISOString(),
+          updatedAt: feed.source.updatedAt.toISOString()
+        }
+      : null,
     stats: {
       articleCount: stats.articleCount,
       lastArticlePublishedAt: stats.lastArticlePublishedAt

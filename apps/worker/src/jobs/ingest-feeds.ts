@@ -171,11 +171,26 @@ async function processFeed(context: WorkerContext, feedId: string) {
         continue;
       }
 
-      const created = await db.article.create({
-        data: articleInput
-      });
+      try {
+        const created = await db.article.create({
+          data: articleInput
+        });
 
-      insertedArticleIds.push(created.id);
+        insertedArticleIds.push(created.id);
+      } catch (error) {
+        if (isUniqueConstraintError(error)) {
+          logger.debug(
+            {
+              feedId: feed.id,
+              sourceUrl: normalizedUrl,
+              articleTitle: articleInput.title
+            },
+            "Article already exists (race condition detected), skipping"
+          );
+          continue;
+        }
+        throw error;
+      }
     }
 
     if (insertedArticleIds.length > 0) {
@@ -236,6 +251,8 @@ async function processFeed(context: WorkerContext, feedId: string) {
     );
     durationTimer({ feed_id: feed.id, status: "success" });
   } catch (error) {
+    const errorMessage = formatErrorMessage(error);
+    
     await db.$transaction([
       db.feed.update({
         where: { id: feed.id },
@@ -249,8 +266,7 @@ async function processFeed(context: WorkerContext, feedId: string) {
         data: {
           status: FetchStatus.failure,
           finishedAt: new Date(),
-          errorMessage:
-            error instanceof Error ? error.message : "Unknown error",
+          errorMessage,
           errorStack:
             error instanceof Error && error.stack ? error.stack : null
         }
@@ -259,7 +275,7 @@ async function processFeed(context: WorkerContext, feedId: string) {
 
     logger.error(
       { feedId: feed.id, url: feed.url, error },
-      "Feed ingestion failed"
+      `Feed ingestion failed: ${errorMessage}`
     );
 
     workerMetrics.ingestionAttempts.inc({
@@ -329,5 +345,34 @@ function isUniqueConstraintError(error: unknown): boolean {
     error instanceof Prisma.PrismaClientKnownRequestError &&
     error.code === "P2002"
   );
+}
+
+function formatErrorMessage(error: unknown): string {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    switch (error.code) {
+      case "P2002":
+        const target = (error.meta?.target as string[]) ?? [];
+        if (target.includes("feed_id") && target.includes("source_url")) {
+          return "Article with this URL already exists in this feed";
+        }
+        return `Unique constraint violation: ${target.join(", ")}`;
+      case "P2003":
+        return "Foreign key constraint failed - referenced record does not exist";
+      case "P2025":
+        return "Record not found";
+      default:
+        return `Database error (${error.code}): ${error.message}`;
+    }
+  }
+
+  if (error instanceof Prisma.PrismaClientValidationError) {
+    return `Invalid data provided: ${error.message}`;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Unknown error occurred";
 }
 

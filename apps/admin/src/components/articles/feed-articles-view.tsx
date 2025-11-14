@@ -26,7 +26,8 @@ import { Pagination } from "@/components/ui/pagination";
 import {
   useArticles,
   type ArticleQuery,
-  retryFailedArticlesEnrichment
+  retryFailedArticlesEnrichment,
+  deleteArticle as deleteArticleRequest
 } from "@/lib/api/articles";
 import type { ApiError } from "@/lib/api/client";
 import type { Article, Feed } from "@/lib/api/types";
@@ -63,6 +64,7 @@ export function FeedArticlesView({ feed }: { feed: Feed }) {
   const [detailOpen, setDetailOpen] = React.useState(false);
   const [isBulkRetrying, setIsBulkRetrying] = React.useState(false);
   const [searchInput, setSearchInput] = React.useState(searchState.q ?? "");
+  const [deletingArticleId, setDeletingArticleId] = React.useState<string | null>(null);
   const debouncedSearch = useDebounce(searchInput, SEARCH_DEBOUNCE_MS);
 
   React.useEffect(() => {
@@ -177,6 +179,40 @@ export function FeedArticlesView({ feed }: { feed: Feed }) {
     setSelectedArticle(article);
     setDetailOpen(true);
   }
+
+  const handleDeleteArticle = React.useCallback(
+    async (article: Article) => {
+      const confirmed = window.confirm(
+        "Are you sure you want to delete this article? This action cannot be undone."
+      );
+      if (!confirmed) {
+        return;
+      }
+
+      setDeletingArticleId(article.id);
+      try {
+        await deleteArticleRequest(article.id);
+        toast.success("Article deleted");
+        if (selectedArticle?.id === article.id) {
+          setDetailOpen(false);
+          setSelectedArticle(null);
+        }
+        await mutate();
+      } catch (error) {
+        const message =
+          isApiError(error)
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : "Failed to delete article";
+        console.error("Delete article failed", error);
+        toast.error(message);
+      } finally {
+        setDeletingArticleId(null);
+      }
+    },
+    [mutate, selectedArticle]
+  );
 
   function handleFiltersChange(partial: Partial<ArticleFiltersValue>) {
     const sanitized: Partial<ArticleFiltersValue> = { ...partial };
@@ -328,6 +364,8 @@ export function FeedArticlesView({ feed }: { feed: Feed }) {
         isRefetching={isRefetching}
         onResetFilters={filtersCount > 0 ? handleResetFilters : undefined}
         onSelectArticle={handleSelectArticle}
+        onDeleteArticle={handleDeleteArticle}
+        deletingArticleId={deletingArticleId}
       />
 
       {pagination ? (

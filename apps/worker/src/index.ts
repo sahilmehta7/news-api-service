@@ -4,10 +4,11 @@ import { disconnectPrisma } from "@news-api/db";
 import { createWorkerContext, type WorkerContext } from "./context.js";
 import { startIngestionScheduler } from "./jobs/ingest-feeds.js";
 import { startEnrichmentScheduler } from "./jobs/enrich-articles.js";
+import { startReclusteringScheduler } from "./jobs/recluster-stories.js";
 import { workerMetrics } from "./metrics/registry.js";
 
 async function main() {
-  const context = createWorkerContext();
+  const context = await createWorkerContext();
 
   context.logger.info(
     {
@@ -21,12 +22,14 @@ async function main() {
 
   const ingestionScheduler = startIngestionScheduler(context);
   const enrichmentScheduler = startEnrichmentScheduler(context);
+  const reclusteringScheduler = startReclusteringScheduler(context);
   const metricsServer = await startMetricsServer(context);
 
   const shutdown = async (signal?: string) => {
     context.logger.info({ signal }, "Shutting down worker");
     ingestionScheduler.stop();
     enrichmentScheduler.stop();
+    reclusteringScheduler.stop();
 
     if (metricsServer) {
       await metricsServer.close();
@@ -34,7 +37,9 @@ async function main() {
 
     await Promise.all([
       context.ingestionQueue.onIdle(),
-      context.enrichmentQueue.onIdle()
+      context.enrichmentQueue.onIdle(),
+      context.indexQueue.close(),
+      context.storyQueue.close()
     ]);
     await disconnectPrisma();
     process.exit(0);

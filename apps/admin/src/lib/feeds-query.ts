@@ -47,7 +47,12 @@ export function parseFeedSearchParams(
   };
 
   const readSort = (value: string | null): FeedListSort => {
-    if (value === "name" || value === "lastFetchAt" || value === "createdAt") {
+    if (
+      value === "name" ||
+      value === "lastFetchAt" ||
+      value === "createdAt" ||
+      value === "articleCount"
+    ) {
       return value;
     }
     return "createdAt";

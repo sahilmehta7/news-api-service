@@ -21,6 +21,10 @@ type PendingArticle = {
   title: string;
   language: string | null;
   fetchedAt: Date;
+  publishedAt: Date | null;
+  author: string | null;
+  summary: string | null;
+  keywords: unknown;
   retries: number;
 };
 
@@ -125,7 +129,11 @@ async function loadPendingArticles(
           canonicalUrl: true,
           title: true,
           language: true,
-          fetchedAt: true
+          fetchedAt: true,
+          publishedAt: true,
+          author: true,
+          summary: true,
+          keywords: true
         }
       }
     },
@@ -147,6 +155,10 @@ async function loadPendingArticles(
       title: record.article.title,
       language: record.article.language,
       fetchedAt: record.article.fetchedAt,
+      publishedAt: record.article.publishedAt,
+      author: record.article.author,
+      summary: record.article.summary,
+      keywords: record.article.keywords,
       retries: record.retries
     }));
 }
@@ -173,7 +185,11 @@ async function loadArticlesByIds(
           canonicalUrl: true,
           title: true,
           language: true,
-          fetchedAt: true
+          fetchedAt: true,
+          publishedAt: true,
+          author: true,
+          summary: true,
+          keywords: true
         }
       }
     }
@@ -189,6 +205,10 @@ async function loadArticlesByIds(
       title: record.article.title,
       language: record.article.language,
       fetchedAt: record.article.fetchedAt,
+      publishedAt: record.article.publishedAt,
+      author: record.article.author,
+      summary: record.article.summary,
+      keywords: record.article.keywords,
       retries: record.retries
     }));
 }
@@ -240,6 +260,41 @@ async function enrichArticle(
     const metadataResult = extractMetadataFromHtml(html, targetUrl);
     const contentResult = extractArticleContent(html, targetUrl);
 
+    const textForEmbedding =
+      contentResult.contentPlain ?? metadataResult.description ?? article.title;
+    const embedding = await context.embeddingProvider.embed(textForEmbedding);
+
+    const articleDoc: import("@news-api/search").ArticleDocument = {
+      id: article.articleId,
+      feed_id: article.feedId,
+      source_url: article.sourceUrl,
+      canonical_url: article.canonicalUrl,
+      title: article.title,
+      summary: article.summary ?? null,
+      content: contentResult.contentPlain ?? article.title,
+      author: article.author ?? null,
+      language: metadataResult.language ?? article.language ?? null,
+      keywords: Array.isArray(article.keywords)
+        ? article.keywords.filter((k): k is string => typeof k === "string")
+        : [],
+      published_at: article.publishedAt?.toISOString() ?? null,
+      fetched_at: article.fetchedAt.toISOString(),
+      story_id: null,
+      content_hash: null,
+      embedding
+    };
+
+    const storyId = await import("../lib/search/clustering.js").then((m) =>
+      m.assignStoryId(
+        context.searchClient,
+        context.config,
+        articleDoc,
+        embedding
+      )
+    );
+
+    articleDoc.story_id = storyId;
+
     await db.$transaction([
       db.articleMetadata.update({
         where: { articleId: article.articleId },
@@ -267,10 +322,18 @@ async function enrichArticle(
         data: {
           language: metadataResult.language ?? article.language,
           status: ArticleStatus.enriched,
-          content: contentResult.contentPlain ?? metadataResult.description ?? article.title
+          content: contentResult.contentPlain ?? metadataResult.description ?? article.title,
+          storyId
         }
       })
     ]);
+
+    context.indexQueue.add(articleDoc);
+
+    // Queue story update if storyId was assigned
+    if (storyId) {
+      context.storyQueue.enqueue(storyId);
+    }
 
     logger.info(
       {
@@ -279,7 +342,8 @@ async function enrichArticle(
         language: metadataResult.language ?? article.language,
         readingTimeSeconds:
           metadataResult.readingTimeSeconds ?? deriveReadingTime(contentResult.wordCount),
-        wordCount: contentResult.wordCount ?? metadataResult.wordCount
+        wordCount: contentResult.wordCount ?? metadataResult.wordCount,
+        storyId
       },
       "Article enrichment succeeded"
     );

@@ -13,9 +13,11 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@elastic/elasticsearch": "^8.15.0",
     "@news-api/config": "0.1.0",
     "@news-api/db": "0.1.0",
     "@news-api/logger": "0.1.0",
+    "@news-api/search": "0.1.0",
     "@news-api/shared": "0.1.0",
     "@mozilla/readability": "^0.5.0",
     "jsdom": "^25.0.0",
@@ -24,6 +26,7 @@
     "prom-client": "^15.1.3",
     "rss-parser": "^3.13.0",
     "tinyld": "^1.1.2",
+    "uuid": "^11.0.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {

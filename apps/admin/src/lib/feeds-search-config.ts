@@ -16,7 +16,7 @@ export const feedSearchConfig = {
   lastFetchStatuses: parseAsArrayOf(parseAsString).withDefault([]),
   isActive: parseAsString.withDefault("all"),
   hasIssues: parseAsString.withDefault("all"),
-  sort: parseAsStringEnum(["createdAt", "lastFetchAt", "name"]).withDefault("createdAt"),
+  sort: parseAsStringEnum(["createdAt", "lastFetchAt", "name", "articleCount"]).withDefault("createdAt"),
   order: parseAsStringEnum(["asc", "desc"]).withDefault("desc"),
   limit: parseAsInteger.withDefault(FEED_LIST_DEFAULT_LIMIT),
   cursor: parseAsString.withDefault(""),

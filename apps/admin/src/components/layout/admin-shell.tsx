@@ -39,7 +39,9 @@ const NAV_LINKS: NavLink[] = [
       { href: "/feeds/import", label: "Bulk import" }
     ]
   },
+  { href: "/sources", label: "Sources" },
   { href: "/articles", label: "Articles" },
+  { href: "/stories", label: "Stories" },
   { href: "/metrics", label: "Metrics" },
   { href: "/logs", label: "Fetch Logs" },
   { href: "/settings", label: "Settings" }

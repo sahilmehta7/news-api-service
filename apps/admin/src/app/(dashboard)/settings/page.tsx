@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/components/auth/auth-context";
 import { API_BASE_URL } from "@/lib/env";
+import { SearchHealth } from "@/components/settings/search-health";
 
 type TestStatus = "idle" | "pending" | "success" | "error";
 
@@ -159,6 +160,8 @@ export default function SettingsPage() {
           </ul>
         </CardContent>
       </Card>
+
+      <SearchHealth />
     </div>
   );
 }

@@ -37,16 +37,35 @@ async function request<T>(
   }
 
   const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
-  const res = await runWithThrottle(() =>
-    fetch(url, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": apiKey,
-        ...(options.headers ?? {})
-      }
-    })
-  );
+  let res: Response;
+
+  const headers: HeadersInit = {
+    "X-API-Key": apiKey,
+    ...(options.headers ?? {})
+  };
+
+  // Only add Content-Type for requests that have a body
+  if (options.body !== undefined && options.method !== "DELETE") {
+    headers["Content-Type"] = "application/json";
+  }
+
+  try {
+    res = await runWithThrottle(() =>
+      fetch(url, {
+        ...options,
+        headers
+      })
+    );
+  } catch (error) {
+    if (attempt < MAX_RETRIES) {
+      await delay(getRetryDelay(attempt));
+      return request<T>(path, options, attempt + 1);
+    }
+
+    const errorMessage = getNetworkErrorMessage(error);
+    const detailedMessage = `${errorMessage} (${options.method ?? "GET"} ${url})`;
+    throw new ApiError(detailedMessage, 0);
+  }
 
   if (res.status === 429 && attempt < MAX_RETRIES) {
     const retryAfterHeader = res.headers.get("retry-after");
@@ -68,8 +87,13 @@ async function request<T>(
     throw new ApiError(message, res.status);
   }
 
+  // DELETE requests may return 204 (no content) or 200 (with response body)
   if (options.method === "DELETE") {
-    return undefined as T;
+    if (res.status === 204 || res.headers.get("content-length") === "0") {
+      return undefined as T;
+    }
+    // If DELETE returns content, parse it (e.g., soft delete returns updated feed)
+    return res.json() as Promise<T>;
   }
 
   if (options.parseJson === false) {
@@ -140,5 +164,22 @@ function delay(ms: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+function getNetworkErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    if (error.message === "Failed to fetch") {
+      return `Unable to reach the News API at ${API_BASE_URL}. Check your network connection and verify that the API server is running.`;
+    }
+    if (error.message.includes("NetworkError") || error.message.includes("Network request failed")) {
+      return `Network error connecting to ${API_BASE_URL}. Verify the API server is running and accessible.`;
+    }
+    return error.message;
+  }
+  return "Network request failed";
+}
+
+function getRetryDelay(attempt: number) {
+  return Math.max(500, 500 * 2 ** attempt);
 }
 

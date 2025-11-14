@@ -4,8 +4,16 @@
 
 - PostgreSQL 15+ with the `pgcrypto` and `pg_trgm` extensions enabled.
 - Node.js 20.11+ and npm 11+ installed on the target environment.
-- Environment variables configured (`DATABASE_URL`, `API_ADMIN_KEY`, optional monitoring overrides, and `NEXT_PUBLIC_API_BASE_URL`/`NEXT_PUBLIC_WORKER_METRICS_URL`/`NEXT_PUBLIC_API_METRICS_URL` for the admin UI).
+- Environment variables configured (`DATABASE_URL`, `API_ADMIN_KEY`, optional monitoring overrides, `SEARCH_ENABLED`, Elasticsearch connection vars, embedding provider settings, and `NEXT_PUBLIC_API_BASE_URL`/`NEXT_PUBLIC_WORKER_METRICS_URL`/`NEXT_PUBLIC_API_METRICS_URL` for the admin UI).
 - Network access from the worker to external RSS sources.
+- Elasticsearch 8.x (optional, for search and clustering features). Set `SEARCH_ENABLED=true` and configure `ELASTICSEARCH_NODE`, `ELASTICSEARCH_USERNAME`, `ELASTICSEARCH_PASSWORD`, `ELASTICSEARCH_INDEX_PREFIX`, and `SEARCH_DEFAULT_LANGUAGE`.
+- Embedding provider configuration (optional, defaults to mock provider):
+  - `EMBEDDING_PROVIDER` (`mock` | `http` | `node`)
+  - `EMBEDDING_ENDPOINT` (HTTP provider)
+  - `EMBEDDING_TIMEOUT_MS`
+  - `EMBEDDING_MAX_RETRIES`, `EMBEDDING_RETRY_INITIAL_DELAY_MS`, `EMBEDDING_RETRY_MAX_DELAY_MS`
+  - `EMBEDDING_CIRCUIT_BREAKER_FAILURE_THRESHOLD`, `EMBEDDING_CIRCUIT_BREAKER_SUCCESS_THRESHOLD`, `EMBEDDING_CIRCUIT_BREAKER_TIMEOUT_MS`
+  - `EMBEDDING_MODEL` (Node provider placeholder)
 
 ## First-Time Setup
 
@@ -57,12 +65,19 @@
 
 ## Monitoring & Observability
 
-- API health check: `GET /health`
+- API health check: `GET /health` (includes Elasticsearch status when search is enabled)
 - API metrics: `GET /metrics` (Prometheus format)
 - Worker metrics: `http://<metrics_host>:<metrics_port>/metrics`
 - Review ingestion/enrichment logs for `Feed ingestion succeeded` and `Article enrichment succeeded` messages.
 - Admin metrics dashboard: `/metrics` within the admin UI visualizes API and worker summaries.
 - Admin logs view: `/logs` exposes fetch/enrichment attempts with filters and stack traces for debugging.
+- Search metrics (when enabled):
+  - `news_search_index_docs_total{status="success|failure"}`: Documents indexed
+  - `news_search_index_duration_seconds`: Indexing latency
+  - `news_search_knn_queries_total`: k-NN queries executed
+  - `news_search_knn_query_duration_seconds`: Query latency
+  - `news_search_clusters_total{action="create|merge|split"}`: Cluster operations
+  - `news_search_cluster_duration_seconds`: Clustering latency
 
 ## Manual Operations
 
@@ -93,6 +108,30 @@
   ```
   The script keeps the most recent article per `source_url` and deletes older copies and their metadata.
 
+- **Backfill search index**  
+  Index historical articles into Elasticsearch and assign story clusters:  
+  ```bash
+  npm run search:backfill -- --fromDays 7
+  ```
+  Options:
+  - `--fromDays N`: Backfill articles from the last N days (default: 7)
+  - `--from ISO_DATE`: Start date in ISO format (e.g., `2024-01-01T00:00:00Z`)
+  - `--to ISO_DATE`: End date in ISO format
+  - `--batch N`: Batch size for processing (default: 500)
+  - `--concurrency N`: Number of concurrent operations (default: 4)
+  
+  Example: Backfill last 30 days with larger batches:
+  ```bash
+  npm run search:backfill -- --fromDays 30 --batch 1000
+  ```
+
+- **Verify Elasticsearch health**  
+  Check cluster status via API health endpoint:
+  ```bash
+  curl "{{baseUrl}}/health" | jq '.checks.elasticsearch'
+  ```
+  Expected values: `"up"` (healthy), `"disabled"` (search disabled), `"down"` (connection failed).
+
 ## Verification Checklist
 
 - `GET /feeds` returns registered feeds with `stats.articleCount`.
@@ -103,6 +142,12 @@
 - Admin UI feed management reflects database updates and supports CRUD workflows.
 - Admin metrics page reports queue size and request counters without errors.
 - Admin log viewer surfaces recent fetch attempts, including failures when they are induced.
+- If search is enabled:
+  - `GET /health` reports `elasticsearch: "up"`.
+  - `GET /search?q=test` returns relevant articles (hybrid BM25 + k-NN).
+  - `GET /stories` returns clustered story groups.
+  - Admin articles page "Group similar" toggle diversifies results by story.
+  - Admin stories page displays clustered articles with metadata.
 
 ## Admin Access & API Key Rotation
 

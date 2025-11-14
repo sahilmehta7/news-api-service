@@ -16,6 +16,7 @@ import type { Article } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { retryArticleEnrichment, useArticleDetail } from "@/lib/api/articles";
 import { toast } from "sonner";
+import { formatErrorMessage } from "@/lib/utils/format-error-message";
 
 type ArticleDetailProps = {
   article: Article | null;
@@ -290,7 +291,7 @@ export function ArticleDetail({
                     Enrichment Failure Context
                   </p>
                   <pre className="overflow-x-auto whitespace-pre-wrap text-[11px]">
-                    {currentArticle.errorMessage ?? "Unknown error"}
+                    {formatErrorMessage(currentArticle.errorMessage)}
                   </pre>
                 </div>
               ) : null}

@@ -55,7 +55,28 @@ export function loadConfig(options: { env?: NodeJS.ProcessEnv } = {}): AppConfig
       enabled: coerceBoolean(env.MONITORING_ENABLED),
       metricsPort: env.MONITORING_METRICS_PORT,
       metricsHost: env.MONITORING_METRICS_HOST
-    }
+    },
+          search: {
+            enabled: coerceBoolean(env.SEARCH_ENABLED),
+            elasticsearch: {
+              node: env.ELASTICSEARCH_NODE,
+              username: env.ELASTICSEARCH_USERNAME,
+              password: env.ELASTICSEARCH_PASSWORD,
+              indexPrefix: env.ELASTICSEARCH_INDEX_PREFIX,
+              defaultLanguage: env.SEARCH_DEFAULT_LANGUAGE
+            }
+          },
+          clustering: {
+            enabled: coerceBoolean(env.CLUSTERING_ENABLED ?? "true"),
+            reclusterIntervalMs: env.CLUSTERING_RECLUSTER_INTERVAL_MS,
+            windowHours: env.CLUSTERING_WINDOW_HOURS,
+            mergeSimilarityThreshold: env.CLUSTERING_MERGE_SIMILARITY_THRESHOLD,
+            splitCohesionThreshold: env.CLUSTERING_SPLIT_COHESION_THRESHOLD,
+            minClusterSizeForSplit: env.CLUSTERING_MIN_CLUSTER_SIZE_FOR_SPLIT,
+            cosineWeight: env.CLUSTERING_COSINE_WEIGHT,
+            jaccardWeight: env.CLUSTERING_JACCARD_WEIGHT,
+            entityWeight: env.CLUSTERING_ENTITY_WEIGHT
+          }
   });
 
   if (!result.success) {

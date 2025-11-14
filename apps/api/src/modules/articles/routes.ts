@@ -140,6 +140,35 @@ export async function registerArticleRoutes(app: FastifyInstance) {
     }
   );
 
+  app.delete(
+    "/articles/:id",
+    {
+      preHandler: app.verifyAdmin
+    },
+    async (request, reply) => {
+      const params = articleIdSchema.parse(request.params);
+
+      const article = await app.db.article.findUnique({
+        where: { id: params.id },
+        select: { id: true }
+      });
+
+      if (!article) {
+        reply.code(404).send({
+          error: "NotFound",
+          message: `Article ${params.id} not found`
+        });
+        return;
+      }
+
+      await app.db.article.delete({
+        where: { id: params.id }
+      });
+
+      reply.code(204).send();
+    }
+  );
+
   app.post(
     "/articles/retry-enrichment/bulk",
     {

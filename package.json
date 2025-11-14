@@ -18,7 +18,12 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
-    "cleanup:dedupe-articles": "tsx scripts/cleanup/remove-duplicate-articles.ts"
+    "cleanup:dedupe-articles": "tsx scripts/cleanup/remove-duplicate-articles.ts",
+    "search:backfill": "tsx scripts/search-backfill.ts",
+    "test:story-maintenance": "tsx scripts/test-story-maintenance.ts",
+    "test:runtime-story": "tsx scripts/test-runtime-story-maintenance.ts",
+    "verify:story-setup": "tsx scripts/verify-story-setup.ts",
+    "benchmark:search": "tsx scripts/benchmark-search.ts"
   },
   "engines": {
     "node": ">=20.11.0",

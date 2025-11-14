@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 
 export interface ArticleFiltersValue {
   feedId?: string;
+  feedCategory?: string;
   enrichmentStatus?: string;
   language?: string;
   hasMedia?: "true" | "false";
@@ -47,6 +48,17 @@ export function ArticleFilters({
     order: "asc"
   });
   const feeds = feedList?.data ?? [];
+  const categories = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (feedList?.facets.categories ?? []).filter(
+            (category): category is string => Boolean(category && category.trim().length)
+          )
+        )
+      ),
+    [feedList?.facets.categories]
+  );
 
   function handleSelectChange<Key extends keyof ArticleFiltersValue>(
     key: Key,
@@ -73,6 +85,28 @@ export function ArticleFilters({
             {feeds?.map((feed) => (
               <SelectItem value={feed.id} key={feed.id}>
                 {feed.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label className="mb-1 block text-xs uppercase text-muted-foreground">Category</Label>
+        <Select
+          value={values.feedCategory ?? ALL_OPTION}
+          onValueChange={(value: string) => {
+            handleSelectChange("feedCategory", value === ALL_OPTION ? undefined : value);
+          }}
+        >
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="All categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_OPTION}>All categories</SelectItem>
+            {categories.map((category) => (
+              <SelectItem value={category} key={category}>
+                {category}
               </SelectItem>
             ))}
           </SelectContent>

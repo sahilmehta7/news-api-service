@@ -1,7 +1,8 @@
 import * as React from "react";
 import { formatDistanceToNow } from "date-fns";
-import { ArrowDown, ArrowUp, ExternalLink, Loader2, Minus } from "lucide-react";
+import { ArrowDown, ArrowUp, ExternalLink, Loader2, Minus, Trash2 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -26,6 +27,8 @@ type ArticleTableProps = {
   onSelectArticle?: (article: Article) => void;
   onResetFilters?: () => void;
   isRefetching?: boolean;
+  onDeleteArticle?: (article: Article) => void;
+  deletingArticleId?: string | null;
 };
 
 export function ArticleTable({
@@ -37,7 +40,9 @@ export function ArticleTable({
   onSortChange,
   onSelectArticle,
   onResetFilters,
-  isRefetching
+  isRefetching,
+  onDeleteArticle,
+  deletingArticleId
 }: ArticleTableProps) {
   if (loading && !articles) {
     return (
@@ -93,6 +98,7 @@ export function ArticleTable({
             />
             <TableHead className="w-[100px]">Language</TableHead>
             <TableHead className="w-[120px] text-right">Reading time</TableHead>
+            <TableHead className="w-[80px] text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -165,11 +171,33 @@ export function ArticleTable({
                     ? `${Math.max(1, Math.round(article.readingTimeSeconds / 60))} min`
                     : "—"}
                 </TableCell>
+                <TableCell className="text-right">
+                  {onDeleteArticle ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive focus-visible:ring-destructive"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onDeleteArticle(article);
+                      }}
+                      disabled={deletingArticleId === article.id}
+                    >
+                      {deletingArticleId === article.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                      <span className="sr-only">Delete article</span>
+                    </Button>
+                  ) : null}
+                </TableCell>
               </TableRow>
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={7} className="py-12 text-center text-sm">
+              <TableCell colSpan={8} className="py-12 text-center text-sm">
                 <div className="mx-auto max-w-sm space-y-3">
                   <div className="text-base font-medium text-foreground">No articles match these filters</div>
                   <p className="text-sm text-muted-foreground">

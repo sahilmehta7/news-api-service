@@ -63,11 +63,25 @@ model Feed {
   createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   metadata             Json
+  sourceId             String?     @map("source_id") @db.Uuid
 
   articles  Article[]
   fetchLogs FetchLog[]
+  source    Source?    @relation(fields: [sourceId], references: [id])
 
   @@map("feeds")
+  @@index([sourceId], map: "feeds_source_id_idx")
+}
+
+model Source {
+  id        String   @id @default(uuid()) @db.Uuid
+  baseUrl   String   @unique @map("base_url")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  feeds Feed[]
+
+  @@map("sources")
 }
 
 model Article {
@@ -88,6 +102,7 @@ model Article {
   createdAt    DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   searchVector Unsupported("tsvector")? @map("search_vector")
+  storyId      String?                  @map("story_id")
 
   feed            Feed             @relation(fields: [feedId], references: [id], onDelete: Cascade)
   articleMetadata ArticleMetadata?
@@ -99,6 +114,7 @@ model Article {
   @@index([status], map: "articles_status_idx")
   @@index([fetchedAt], map: "articles_fetched_at_idx")
   @@index([searchVector], type: Gin, map: "articles_search_vector_idx")
+  @@index([storyId], map: "articles_story_id_idx")
   @@map("articles")
 }
 
@@ -140,4 +156,17 @@ model FetchLog {
   feed Feed? @relation(fields: [feedId], references: [id], onDelete: Cascade)
 
   @@map("fetch_logs")
+}
+
+model Story {
+  id             String    @id @default(uuid()) @db.Uuid
+  titleRep       String?   @map("title_rep")
+  summary        String?   @db.Text
+  keywords       Json?
+  timeRangeStart DateTime? @map("time_range_start") @db.Timestamptz(6)
+  timeRangeEnd   DateTime? @map("time_range_end") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("stories")
 }

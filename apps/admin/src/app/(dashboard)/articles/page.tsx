@@ -20,7 +20,8 @@ import { Pagination } from "@/components/ui/pagination";
 import {
   useArticles,
   type ArticleQuery,
-  retryFailedArticlesEnrichment
+  retryFailedArticlesEnrichment,
+  deleteArticle as deleteArticleRequest
 } from "@/lib/api/articles";
 import type { ApiError } from "@/lib/api/client";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -37,13 +38,15 @@ const searchParamConfig = {
   page: parseAsInteger.withDefault(1),
   q: parseAsString,
   feedId: parseAsString,
+  feedCategory: parseAsString,
   enrichmentStatus: parseAsString,
   language: parseAsString,
   hasMedia: parseAsString,
   fromDate: parseAsString,
   toDate: parseAsString,
   sort: parseAsString.withDefault("publishedAt"),
-  order: parseAsStringEnum(["asc", "desc"]).withDefault("desc")
+  order: parseAsStringEnum(["asc", "desc"]).withDefault("desc"),
+  groupByStory: parseAsString
 } as const;
 
 export default function ArticlesPage() {
@@ -55,6 +58,7 @@ export default function ArticlesPage() {
   const [detailOpen, setDetailOpen] = React.useState(false);
   const [isBulkRetrying, setIsBulkRetrying] = React.useState(false);
   const [searchInput, setSearchInput] = React.useState(searchState.q ?? "");
+  const [deletingArticleId, setDeletingArticleId] = React.useState<string | null>(null);
   const debouncedSearch = useDebounce(searchInput, SEARCH_DEBOUNCE_MS);
   const { data: feedList } = useFeedList({
     limit: 200,
@@ -102,6 +106,7 @@ export default function ArticlesPage() {
     () =>
       filtersFromState({
         feedId: searchState.feedId,
+        feedCategory: searchState.feedCategory,
         enrichmentStatus: searchState.enrichmentStatus,
         language: searchState.language,
         hasMedia: searchState.hasMedia,
@@ -111,6 +116,7 @@ export default function ArticlesPage() {
     [
       searchState.feedId,
       searchState.enrichmentStatus,
+      searchState.feedCategory,
       searchState.language,
       searchState.hasMedia,
       searchState.fromDate,
@@ -163,6 +169,40 @@ export default function ArticlesPage() {
     setDetailOpen(true);
   }
 
+  const handleDeleteArticle = React.useCallback(
+    async (article: Article) => {
+      const confirmed = window.confirm(
+        "Are you sure you want to delete this article? This action cannot be undone."
+      );
+      if (!confirmed) {
+        return;
+      }
+
+      setDeletingArticleId(article.id);
+      try {
+        await deleteArticleRequest(article.id);
+        toast.success("Article deleted");
+        if (selectedArticle?.id === article.id) {
+          setDetailOpen(false);
+          setSelectedArticle(null);
+        }
+        await mutate();
+      } catch (error) {
+        const message =
+          isApiError(error)
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : "Failed to delete article";
+        console.error("Delete article failed", error);
+        toast.error(message);
+      } finally {
+        setDeletingArticleId(null);
+      }
+    },
+    [mutate, selectedArticle]
+  );
+
   function handleFiltersChange(partial: Partial<ArticleFiltersValue>) {
     const values = Object.fromEntries(
       Object.entries(partial).map(([key, value]) => [
@@ -179,6 +219,7 @@ export default function ArticlesPage() {
   function handleResetFilters() {
     void setSearchParams({
       feedId: null,
+      feedCategory: null,
       enrichmentStatus: null,
       language: null,
       hasMedia: null,
@@ -252,6 +293,10 @@ export default function ArticlesPage() {
         activeFilters={activeFilters}
         onRemoveFilter={(key) => handleRemoveFilter(key as keyof ArticleFiltersValue)}
         onResetFilters={handleResetFilters}
+        groupByStory={searchState.groupByStory === "true"}
+        onGroupByStoryChange={(enabled) => {
+          void setSearchParams({ groupByStory: enabled ? "true" : null, page: 1 });
+        }}
       />
 
       <div className="lg:hidden">
@@ -292,6 +337,8 @@ export default function ArticlesPage() {
         isRefetching={isRefetching}
         onResetFilters={filtersCount > 0 ? handleResetFilters : undefined}
         onSelectArticle={handleSelectArticle}
+        onDeleteArticle={handleDeleteArticle}
+        deletingArticleId={deletingArticleId}
       />
 
       {pagination ? (
@@ -341,6 +388,14 @@ function createActiveFiltersSummary(
   if (filters.feedId) {
     const feedName = feeds?.find((feed) => feed.id === filters.feedId)?.name ?? "Selected feed";
     entries.push({ key: "feedId", label: "Feed", value: feedName });
+  }
+
+  if (filters.feedCategory) {
+    entries.push({
+      key: "feedCategory",
+      label: "Category",
+      value: filters.feedCategory
+    });
   }
 
   if (filters.enrichmentStatus) {

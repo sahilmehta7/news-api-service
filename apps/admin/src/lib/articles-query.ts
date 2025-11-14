@@ -5,6 +5,7 @@ export type RawArticleSearchState = {
   page?: number | null;
   q?: string | null;
   feedId?: string | null;
+  feedCategory?: string | null;
   enrichmentStatus?: string | null;
   language?: string | null;
   hasMedia?: string | null;
@@ -12,6 +13,7 @@ export type RawArticleSearchState = {
   toDate?: string | null;
   sort?: string | null;
   order?: string | null;
+  groupByStory?: string | null;
 };
 
 const SORT_KEYS = new Set<ArticleQuery["sort"]>(["publishedAt", "fetchedAt", "relevance"]);
@@ -22,7 +24,8 @@ export function buildArticleQuery(state: RawArticleSearchState, pageSize: number
     page: safePage,
     pageSize,
     sort: normalizeSort(state.sort, state.q ?? undefined),
-    order: state.order === "asc" ? "asc" : "desc"
+    order: state.order === "asc" ? "asc" : "desc",
+    groupByStory: state.groupByStory === "true"
   };
 
   if (hasValue(state.q)) {
@@ -31,6 +34,10 @@ export function buildArticleQuery(state: RawArticleSearchState, pageSize: number
 
   if (hasValue(state.feedId)) {
     normalized.feedId = state.feedId!;
+  }
+
+  if (hasValue(state.feedCategory)) {
+    normalized.feedCategory = state.feedCategory!;
   }
 
   if (hasValue(state.enrichmentStatus)) {
@@ -61,6 +68,7 @@ export function buildArticleQuery(state: RawArticleSearchState, pageSize: number
 export function filtersFromState(state: RawArticleSearchState): ArticleFiltersValue {
   return {
     feedId: normalizeString(state.feedId),
+    feedCategory: normalizeString(state.feedCategory),
     enrichmentStatus: normalizeString(state.enrichmentStatus),
     language: normalizeString(state.language),
     hasMedia:

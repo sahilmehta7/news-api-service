@@ -23,20 +23,34 @@ export type ArticleQuery = {
   order?: "asc" | "desc";
   enrichmentStatus?: string;
   hasMedia?: boolean;
+  groupByStory?: boolean;
 };
 
 export function useArticles(query: ArticleQuery) {
-  const searchParams = new URLSearchParams(
-    Object.entries(query)
-      .filter(([, value]) => {
-        if (value === undefined || value === null || value === "") return false;
-        if (typeof value === "number") return !Number.isNaN(value);
-        return true;
-      })
-      .map(([key, value]) => [key, String(value)])
-  );
+  const useSearchEndpoint = query.groupByStory === true;
+  const endpoint = useSearchEndpoint ? "/search" : "/articles";
 
-  const key = `/articles?${searchParams.toString()}`;
+  const searchParams = new URLSearchParams();
+  
+  if (useSearchEndpoint) {
+    if (query.q) searchParams.set("q", query.q);
+    if (query.fromDate) searchParams.set("from", query.fromDate);
+    if (query.toDate) searchParams.set("to", query.toDate);
+    if (query.language) searchParams.set("language", query.language);
+    if (query.feedId) searchParams.set("feedId", query.feedId);
+    searchParams.set("size", String(query.pageSize ?? 20));
+    searchParams.set("offset", String(((query.page ?? 1) - 1) * (query.pageSize ?? 20)));
+    searchParams.set("groupByStory", "true");
+  } else {
+    Object.entries(query).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === "") return;
+      if (typeof value === "number" && Number.isNaN(value)) return;
+      if (key === "groupByStory") return;
+      searchParams.set(key, String(value));
+    });
+  }
+
+  const key = `${endpoint}?${searchParams.toString()}`;
   return useSWR<ArticleListResponse>(key, async () => {
     const data = await apiClient.get<ArticleListResponse>(key);
     return articleListResponseSchema.parse(data);
@@ -77,6 +91,10 @@ export function useArticleDetail(
 
 export async function retryArticleEnrichment(articleId: string) {
   await apiClient.post(`/articles/${articleId}/retry-enrichment`, {});
+}
+
+export async function deleteArticle(articleId: string) {
+  await apiClient.delete(`/articles/${articleId}`);
 }
 
 type BulkRetryResponse = {

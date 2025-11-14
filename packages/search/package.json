@@ -1,0 +1,29 @@
+{
+  "name": "@news-api/search",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsup src/index.ts --dts --format esm --out-dir dist",
+    "lint": "biome lint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@elastic/elasticsearch": "^8.15.0",
+    "@news-api/config": "0.1.0",
+    "@news-api/logger": "0.1.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.2",
+    "@types/node": "^22.7.4",
+    "tsup": "^8.2.4",
+    "typescript": "^5.6.3",
+    "vitest": "^4.0.8"
+  }
+}
+

@@ -9,6 +9,13 @@ const metadataSchema = z
   .default({})
   .catch({});
 
+const sourceSchema = z.object({
+  id: z.string().uuid(),
+  baseUrl: z.string().url(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+
 export const createFeedSchema = z.object({
   name: z.string().min(1, "Feed name is required"),
   url: z.string().url("Feed URL must be valid"),
@@ -44,6 +51,7 @@ export const feedResponseSchema = z.object({
   metadata: metadataSchema,
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+  source: sourceSchema.nullable(),
   stats: z.object({
     articleCount: z.number().int().nonnegative(),
     lastArticlePublishedAt: z.string().datetime().nullable()
@@ -71,7 +79,7 @@ const booleanFromQuery = z
 
 const lastFetchStatuses = ["idle", "fetching", "success", "warning", "error"] as const;
 
-export type FeedSortField = "name" | "createdAt" | "lastFetchAt";
+export type FeedSortField = "name" | "createdAt" | "lastFetchAt" | "articleCount";
 
 export const feedListQuerySchema = z.object({
   q: z
@@ -99,12 +107,13 @@ export const feedListQuerySchema = z.object({
     .optional(),
   sort: z
     .string()
-    .transform((value) => {
-      const allowed: FeedSortField[] = ["name", "createdAt", "lastFetchAt", "articleCount"];
-      return allowed.includes(value as FeedSortField)
+    .transform((value) =>
+      (["name", "createdAt", "lastFetchAt", "articleCount"] as const).includes(
+        value as FeedSortField
+      )
         ? (value as FeedSortField)
-        : undefined;
-    })
+        : undefined
+    )
     .default("createdAt"),
   order: z
     .enum(["asc", "desc"])

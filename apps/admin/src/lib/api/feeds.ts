@@ -16,7 +16,7 @@ import {
 
 const endpoint = "/feeds";
 
-export type FeedListSort = "name" | "createdAt" | "lastFetchAt";
+export type FeedListSort = "name" | "createdAt" | "lastFetchAt" | "articleCount";
 export type FeedListOrder = "asc" | "desc";
 
 export interface FeedListParams {

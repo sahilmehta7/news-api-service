@@ -23,6 +23,17 @@ const monitoringSchema = z.object({
   metricsHost: z.string().default("0.0.0.0")
 });
 
+const searchSchema = z.object({
+  enabled: z.coerce.boolean().default(false),
+  elasticsearch: z.object({
+    node: z.string().url().default("http://localhost:9200"),
+    username: z.string().optional(),
+    password: z.string().optional(),
+    indexPrefix: z.string().default("news"),
+    defaultLanguage: z.string().default("english")
+  })
+});
+
 export const configSchema = z.object({
   nodeEnv: z
     .enum(["development", "test", "production"])
@@ -48,7 +59,19 @@ export const configSchema = z.object({
     concurrency: z.coerce.number().int().positive().default(5),
     timeoutMs: z.coerce.number().int().positive().default(10_000)
   }),
-  monitoring: monitoringSchema
+  monitoring: monitoringSchema,
+  search: searchSchema,
+  clustering: z.object({
+    enabled: z.coerce.boolean().default(true),
+    reclusterIntervalMs: z.coerce.number().int().positive().default(20 * 60 * 1000), // 20 minutes
+    windowHours: z.coerce.number().int().positive().default(72),
+    mergeSimilarityThreshold: z.coerce.number().min(0).max(1).default(0.85),
+    splitCohesionThreshold: z.coerce.number().min(0).max(1).default(0.75),
+    minClusterSizeForSplit: z.coerce.number().int().positive().default(5),
+    cosineWeight: z.coerce.number().min(0).max(1).default(0.7),
+    jaccardWeight: z.coerce.number().min(0).max(1).default(0.2),
+    entityWeight: z.coerce.number().min(0).max(1).default(0.1)
+  })
 });
 
 export type AppConfig = z.infer<typeof configSchema>;

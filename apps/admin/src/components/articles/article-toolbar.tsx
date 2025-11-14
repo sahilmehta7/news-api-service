@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Filter, Loader2, Search, SlidersHorizontal, X } from "lucide-react";
+import { Filter, Loader2, Search, SlidersHorizontal, X, Layers } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -38,6 +40,8 @@ type ArticleToolbarProps = {
   activeFilters: ActiveFilter[];
   onRemoveFilter: (key: string) => void;
   onResetFilters: () => void;
+  groupByStory?: boolean;
+  onGroupByStoryChange?: (enabled: boolean) => void;
 };
 
 export function ArticleToolbar({
@@ -56,7 +60,9 @@ export function ArticleToolbar({
   filtersCount,
   activeFilters,
   onRemoveFilter,
-  onResetFilters
+  onResetFilters,
+  groupByStory = false,
+  onGroupByStoryChange
 }: ArticleToolbarProps) {
   const hasActiveFilters = activeFilters.length > 0;
 
@@ -137,6 +143,22 @@ export function ArticleToolbar({
           </Button>
         </div>
       </div>
+
+      {onGroupByStoryChange && (
+        <div className="flex items-center gap-2 rounded-lg border bg-card p-3">
+          <Layers className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-2">
+            <Switch
+              id="group-by-story"
+              checked={groupByStory}
+              onCheckedChange={onGroupByStoryChange}
+            />
+            <Label htmlFor="group-by-story" className="text-sm font-normal cursor-pointer">
+              Group similar articles
+            </Label>
+          </div>
+        </div>
+      )}
 
       {hasActiveFilters ? (
         <div className="flex flex-wrap items-center gap-2">

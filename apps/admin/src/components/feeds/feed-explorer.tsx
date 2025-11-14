@@ -211,7 +211,7 @@ function FeedExplorerContent({
 
   async function handleDelete(feedId: string) {
     const confirmed = window.confirm(
-      "Are you sure you want to delete this feed? This action cannot be undone."
+      "Are you sure you want to deactivate this feed? The feed will be marked as inactive and will no longer be fetched, but its articles will be preserved."
     );
     if (!confirmed) {
       return;
@@ -219,11 +219,11 @@ function FeedExplorerContent({
     setPendingDeletionId(feedId);
     try {
       await deleteFeed(feedId);
-      toast.success("Feed deleted");
+      toast.success("Feed deactivated");
       void mutate();
     } catch (error) {
       console.error(error);
-      toast.error(error instanceof Error ? error.message : "Failed to delete feed");
+      toast.error(error instanceof Error ? error.message : "Failed to deactivate feed");
     } finally {
       setPendingDeletionId(null);
     }
@@ -595,7 +595,13 @@ function FeedTable({
                           </Badge>
                         ) : null}
                       </div>
-                      <p className="text-xs text-muted-foreground break-all">{feed.url}</p>
+                      <p className="break-all text-xs text-muted-foreground">{feed.url}</p>
+                      {feed.source ? (
+                        <p className="text-xs text-muted-foreground">
+                          Source:{" "}
+                          <span className="font-medium">{feed.source.baseUrl}</span>
+                        </p>
+                      ) : null}
                       {feed.tags.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {feed.tags.map((tag) => (
@@ -721,7 +727,12 @@ function FeedDetailDrop({
               </Badge>
             ) : null}
           </div>
-          <p className="text-sm text-muted-foreground break-all">{feed.url}</p>
+          <p className="break-all text-sm text-muted-foreground">{feed.url}</p>
+          {feed.source ? (
+            <p className="text-xs text-muted-foreground">
+              Source: <span className="font-medium">{feed.source.baseUrl}</span>
+            </p>
+          ) : null}
           {feed.category ? (
             <p className="text-xs text-muted-foreground">
               Category: <span className="font-medium">{feed.category}</span>
@@ -939,6 +950,7 @@ function SortDropdown({
         <option value="createdAt">Newest</option>
         <option value="name">Name</option>
         <option value="lastFetchAt">Last fetch</option>
+        <option value="articleCount">Article count</option>
       </select>
       <Button variant="outline" size="sm" className="gap-2" onClick={onOrderToggle}>
         <ChevronDown
@@ -1002,12 +1014,12 @@ function FilterSheet({
 }: FilterSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md">
+      <SheetContent side="right" className="flex w-full flex-col sm:max-w-md">
         <SheetHeader>
           <SheetTitle>Filters</SheetTitle>
           <SheetDescription>Refine the feeds shown in the list.</SheetDescription>
         </SheetHeader>
-        <div className="mt-6 space-y-6 text-sm">
+        <div className="mt-6 flex-1 space-y-6 overflow-y-auto text-sm">
           <FilterSection title="Category">
             {availableCategories.length === 0 ? (
               <p className="text-xs text-muted-foreground">No category metadata available.</p>

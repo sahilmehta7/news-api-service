@@ -1,5 +1,37 @@
 import { z } from "zod";
 
+const sourceSchema = z.object({
+  id: z.string().uuid(),
+  baseUrl: z.string().url(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+
+export type Source = z.infer<typeof sourceSchema>;
+
+const sourceStatsSchema = z.object({
+  feedCount: z.number().int().nonnegative(),
+  activeFeedCount: z.number().int().nonnegative()
+});
+
+export const sourceListItemSchema = sourceSchema.extend({
+  stats: sourceStatsSchema
+});
+
+export type SourceListItem = z.infer<typeof sourceListItemSchema>;
+
+export const sourceListResponseSchema = z.object({
+  data: z.array(sourceListItemSchema),
+  pagination: z.object({
+    limit: z.number().int().positive(),
+    nextCursor: z.string().nullable(),
+    hasNextPage: z.boolean(),
+    total: z.number().int().nonnegative()
+  })
+});
+
+export type SourceListResponse = z.infer<typeof sourceListResponseSchema>;
+
 export const feedSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
@@ -13,6 +45,7 @@ export const feedSchema = z.object({
   metadata: z.record(z.unknown()).catch({}),
   createdAt: z.string(),
   updatedAt: z.string(),
+  source: sourceSchema.nullable(),
   stats: z.object({
     articleCount: z.number().int().nonnegative(),
     lastArticlePublishedAt: z.string().nullable()
@@ -186,4 +219,95 @@ export const bulkImportResponseSchema = z.object({
 export type BulkImportSummary = z.infer<typeof bulkImportSummarySchema>;
 export type BulkImportResult = z.infer<typeof bulkImportResultSchema>;
 export type BulkImportResponse = z.infer<typeof bulkImportResponseSchema>;
+
+export const storyListItemSchema = z.object({
+  story_id: z.string(),
+  title_rep: z.string().nullable(),
+  summary: z.string().nullable(),
+  keywords: z.array(z.string()),
+  sources: z.array(z.string()),
+  time_range_start: z.string().nullable(),
+  time_range_end: z.string().nullable(),
+  article_count: z.number().int().nonnegative(),
+  top_articles: z.array(
+    z.object({
+      id: z.string().uuid(),
+      title: z.string(),
+      sourceUrl: z.string(),
+      publishedAt: z.string().nullable()
+    })
+  )
+});
+
+export type StoryListItem = z.infer<typeof storyListItemSchema>;
+
+export const storyListResponseSchema = z.object({
+  data: z.array(storyListItemSchema),
+  pagination: z.object({
+    offset: z.number().int().nonnegative(),
+    size: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+    hasNextPage: z.boolean()
+  })
+});
+
+export type StoryListResponse = z.infer<typeof storyListResponseSchema>;
+
+export const storyDetailSchema = z.object({
+  story_id: z.string(),
+  title_rep: z.string().nullable(),
+  summary: z.string().nullable(),
+  keywords: z.array(z.string()),
+  time_range_start: z.string().nullable(),
+  time_range_end: z.string().nullable(),
+  articles: z.array(
+    z.object({
+      id: z.string().uuid(),
+      feedId: z.string().uuid(),
+      feedName: z.string(),
+      feedCategory: z.string().nullable(),
+      title: z.string(),
+      summary: z.string().nullable(),
+      sourceUrl: z.string(),
+      publishedAt: z.string().nullable()
+    })
+  ),
+  pagination: z.object({
+    page: z.number().int().positive(),
+    pageSize: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+    hasNextPage: z.boolean()
+  })
+});
+
+export type StoryDetail = z.infer<typeof storyDetailSchema>;
+
+export const searchSettingsResponseSchema = z.object({
+  searchEnabled: z.boolean(),
+  elasticsearch: z.object({
+    node: z.string().url(),
+    indexPrefix: z.string(),
+    defaultLanguage: z.string(),
+    hasAuth: z.boolean()
+  }),
+  health: z.object({
+    status: z.enum(["ok", "unavailable", "error"]),
+    message: z.string().optional(),
+    clusterStatus: z.string().optional()
+  }),
+  indices: z.object({
+    articles: z.object({
+      exists: z.boolean(),
+      documentCount: z.number().optional(),
+      health: z.string().optional()
+    }),
+    stories: z.object({
+      exists: z.boolean(),
+      documentCount: z.number().optional(),
+      health: z.string().optional()
+    })
+  })
+});
+
+export type SearchSettingsResponse = z.infer<typeof searchSettingsResponseSchema>;
 

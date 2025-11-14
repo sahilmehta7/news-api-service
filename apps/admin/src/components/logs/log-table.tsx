@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table";
 import type { LogEntry } from "@/lib/api/types";
 import { formatDistanceToNow } from "date-fns";
+import { formatErrorMessage } from "@/lib/utils/format-error-message";
 
 type LogTableProps = {
   logs: LogEntry[] | undefined;
@@ -86,7 +87,7 @@ export function LogTable({ logs, loading, error, onSelectLog }: LogTableProps) {
                 </TableCell>
                 <TableCell className="max-w-sm text-sm">
                   {log.errorMessage ? (
-                    <span className="text-destructive">{log.errorMessage}</span>
+                    <span className="text-destructive">{formatErrorMessage(log.errorMessage)}</span>
                   ) : (
                     <span className="text-muted-foreground">—</span>
                   )}
