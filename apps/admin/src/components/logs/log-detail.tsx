@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { LogEntry } from "@/lib/api/types";
 import { Badge } from "@/components/ui/badge";
-import { formatDistanceToNow } from "date-fns";
+import { formatRelativeTime } from "@/lib/utils/format-relative-time";
 import { Copy } from "lucide-react";
 import { formatErrorMessage } from "@/lib/utils/format-error-message";
 
@@ -50,19 +50,19 @@ export function LogDetail({ log, open, onOpenChange }: LogDetailProps) {
       <DialogContent className="max-h-[80vh] overflow-y-auto">
         {log ? (
           <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center justify-between gap-2">
-                <span>
-                  {titleLabel}
-                  {subjectLabel ? ` · ${subjectLabel}` : ""}
-                </span>
-                <Badge variant={badgeVariant(log.status)}>{log.status}</Badge>
-              </DialogTitle>
-              <DialogDescription>
-                Started {formatDistanceToNow(new Date(log.startedAt), { addSuffix: true })} ·{" "}
-                Duration {log.durationMs != null ? `${Math.round(log.durationMs)} ms` : "—"}
-              </DialogDescription>
-            </DialogHeader>
+              <DialogHeader>
+                <DialogTitle className="flex items-center justify-between gap-2">
+                  <span>
+                    {titleLabel}
+                    {subjectLabel ? ` · ${subjectLabel}` : ""}
+                  </span>
+                  <Badge variant={badgeVariant(log.status)}>{log.status}</Badge>
+                </DialogTitle>
+                <DialogDescription>
+                  Started {formatRelativeTime(log.startedAt)} ·{" "}
+                  Duration {log.durationMs != null ? `${Math.round(log.durationMs)} ms` : "—"}
+                </DialogDescription>
+              </DialogHeader>
 
             <section className="space-y-2">
               <h2 className="text-sm font-semibold uppercase text-muted-foreground">Context</h2>

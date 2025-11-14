@@ -1,13 +1,14 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { useQueryStates, parseAsInteger, parseAsString, parseAsStringEnum } from "nuqs";
 import { RefreshCw } from "lucide-react";
 
 import { ArticleFilters, type ArticleFiltersValue } from "@/components/articles/article-filters";
 import { ArticleTable } from "@/components/articles/article-table";
 import { ArticleToolbar, type SortKey } from "@/components/articles/article-toolbar";
-import { ArticleDetail } from "@/components/articles/article-detail";
+import type { ArticleDetailProps } from "@/components/articles/article-detail";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -31,6 +32,16 @@ import { toast } from "sonner";
 import { useFeedList } from "@/lib/api/feeds";
 import { buildArticleQuery, filtersFromState } from "@/lib/articles-query";
 
+const ArticleDetail = dynamic<ArticleDetailProps>(
+  () =>
+    import("@/components/articles/article-detail").then((module) => ({
+      default: module.ArticleDetail
+    })),
+  {
+    ssr: false,
+    suspense: true
+  }
+);
 const DEFAULT_PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -65,7 +76,7 @@ export default function ArticlesPage() {
     sort: "name",
     order: "asc"
   });
-  const feeds = feedList?.data ?? [];
+  const feeds = React.useMemo(() => feedList?.data ?? [], [feedList]);
 
   React.useEffect(() => {
     if (!detailOpen) {
@@ -353,14 +364,22 @@ export default function ArticlesPage() {
         />
       ) : null}
 
-      <ArticleDetail
-        article={selectedArticle}
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-        onRefresh={() => {
-          void mutate();
-        }}
-      />
+        {detailOpen || selectedArticle ? (
+          <React.Suspense
+            fallback={
+              <ArticleDetailLoading open={detailOpen} onOpenChange={setDetailOpen} />
+            }
+          >
+            <ArticleDetail
+              article={selectedArticle}
+              open={detailOpen}
+              onOpenChange={setDetailOpen}
+              onRefresh={() => {
+                void mutate();
+              }}
+            />
+          </React.Suspense>
+        ) : null}
     </div>
   );
 }
@@ -427,6 +446,30 @@ function createActiveFiltersSummary(
   }
 
   return entries;
+}
+
+function ArticleDetailLoading({
+  open,
+  onOpenChange
+}: Pick<ArticleDetailProps, "open" | "onOpenChange">) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="flex max-w-xl flex-1 flex-col gap-4">
+        <div className="space-y-2">
+          <div className="h-5 w-2/3 animate-pulse rounded bg-muted/50" />
+          <div className="h-4 w-1/2 animate-pulse rounded bg-muted/40" />
+        </div>
+        <div className="space-y-3 rounded-lg border bg-card/50 p-4">
+          <div className="h-4 w-3/4 animate-pulse rounded bg-muted/40" />
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="h-3 w-full animate-pulse rounded bg-muted/30" />
+            ))}
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
 }
 
 function capitalize(value: string) {

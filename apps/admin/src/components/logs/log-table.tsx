@@ -8,7 +8,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 import type { LogEntry } from "@/lib/api/types";
-import { formatDistanceToNow } from "date-fns";
+import { formatRelativeTime } from "@/lib/utils/format-relative-time";
 import { formatErrorMessage } from "@/lib/utils/format-error-message";
 
 type LogTableProps = {
@@ -80,7 +80,7 @@ export function LogTable({ logs, loading, error, onSelectLog }: LogTableProps) {
                   <StatusBadge status={log.status} />
                 </TableCell>
                 <TableCell className="text-sm">
-                  {formatDistanceToNow(new Date(log.startedAt), { addSuffix: true })}
+                  {formatRelativeTime(log.startedAt)}
                 </TableCell>
                 <TableCell className="text-sm">
                   {log.durationMs != null ? `${Math.round(log.durationMs)} ms` : "—"}

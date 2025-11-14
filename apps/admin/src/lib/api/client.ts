@@ -39,14 +39,12 @@ async function request<T>(
   const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
   let res: Response;
 
-  const headers: HeadersInit = {
-    "X-API-Key": apiKey,
-    ...(options.headers ?? {})
-  };
+  const headers = new Headers(options.headers);
+  headers.set("X-API-Key", apiKey);
 
   // Only add Content-Type for requests that have a body
   if (options.body !== undefined && options.method !== "DELETE") {
-    headers["Content-Type"] = "application/json";
+    headers.set("Content-Type", "application/json");
   }
 
   try {

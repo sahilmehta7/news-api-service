@@ -1,6 +1,7 @@
 import * as React from "react";
-import { formatDistanceToNow } from "date-fns";
+import Image from "next/image";
 import { ArrowDown, ArrowUp, ExternalLink, Loader2, Minus, Trash2 } from "lucide-react";
+import { formatRelativeTime } from "@/lib/utils/format-relative-time";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -110,21 +111,24 @@ export function ArticleTable({
                 onClick={() => onSelectArticle?.(article)}
               >
                 <TableCell>
-                  <div className="flex gap-3">
-                    <div className="hidden h-12 w-12 flex-shrink-0 overflow-hidden rounded-md border bg-muted sm:block">
-                      {article.heroImageUrl ? (
-                        <img
-                          src={article.heroImageUrl}
-                          alt=""
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <span className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
-                          No image
-                        </span>
-                      )}
-                    </div>
+                    <div className="flex gap-3">
+                      <div className="hidden h-12 w-12 flex-shrink-0 overflow-hidden rounded-md border bg-muted sm:block">
+                        {article.heroImageUrl ? (
+                          <Image
+                            src={article.heroImageUrl}
+                            alt=""
+                            width={48}
+                            height={48}
+                            className="h-full w-full object-cover"
+                            sizes="48px"
+                            unoptimized
+                          />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                            No image
+                          </span>
+                        )}
+                      </div>
                     <div className="flex min-w-0 flex-1 flex-col gap-2">
                       <div className="flex items-start gap-2">
                         <div className="line-clamp-2 font-medium leading-snug">{article.title}</div>
@@ -154,16 +158,10 @@ export function ArticleTable({
                   <StatusBadge status={article.enrichmentStatus ?? "pending"} />
                 </TableCell>
                 <TableCell className="text-sm">
-                  {article.publishedAt
-                    ? formatDistanceToNow(new Date(article.publishedAt), {
-                        addSuffix: true
-                      })
-                    : "Unknown"}
+                  {article.publishedAt ? formatRelativeTime(article.publishedAt) : "Unknown"}
                 </TableCell>
                 <TableCell className="text-sm">
-                  {formatDistanceToNow(new Date(article.fetchedAt), {
-                    addSuffix: true
-                  })}
+                  {formatRelativeTime(article.fetchedAt)}
                 </TableCell>
                 <TableCell className="text-sm uppercase">{article.language ?? "—"}</TableCell>
                 <TableCell className="text-right text-sm">
@@ -230,8 +228,9 @@ type SortableHeadProps = {
 };
 
 function SortableHead({ label, active, order, onClick }: SortableHeadProps) {
+  const ariaSort = active ? (order === "asc" ? "ascending" : "descending") : "none";
   return (
-    <TableHead>
+    <TableHead aria-sort={ariaSort}>
       <button
         type="button"
         onClick={onClick}
@@ -239,7 +238,6 @@ function SortableHead({ label, active, order, onClick }: SortableHeadProps) {
           "flex items-center gap-1 text-left text-sm font-medium transition hover:text-foreground",
           active ? "text-foreground" : "text-muted-foreground"
         )}
-        aria-sort={active ? (order === "asc" ? "ascending" : "descending") : "none"}
       >
         <span>{label}</span>
         <SortIcon active={active} order={order} />

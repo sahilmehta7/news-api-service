@@ -1,5 +1,5 @@
 import * as React from "react";
-import { formatDistanceToNow } from "date-fns";
+import { formatRelativeTime } from "@/lib/utils/format-relative-time";
 import { ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -97,7 +97,7 @@ export function SourceTableSkeleton() {
 
 function formatRelative(date: string) {
   try {
-    return formatDistanceToNow(new Date(date), { addSuffix: true });
+    return formatRelativeTime(date);
   } catch {
     return "Unknown";
   }

@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/table";
 import type { SourceListItem } from "@/lib/api/types";
 import { useSourceFeeds } from "@/lib/api/sources";
-import { formatDistanceToNow } from "date-fns";
+import { formatRelativeTime } from "@/lib/utils/format-relative-time";
 
 type SourceDetailSheetProps = {
   source: SourceListItem | null;
@@ -162,7 +162,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 function formatDate(value: string) {
   try {
-    return formatDistanceToNow(new Date(value), { addSuffix: true });
+    return formatRelativeTime(value);
   } catch {
     return "Unknown";
   }
