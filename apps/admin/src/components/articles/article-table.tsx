@@ -32,7 +32,7 @@ type ArticleTableProps = {
   deletingArticleId?: string | null;
 };
 
-export function ArticleTable({
+function ArticleTableComponent({
   articles,
   loading,
   error,
@@ -269,4 +269,27 @@ function StatusBadge({ status }: { status: string }) {
   }
   return <Badge variant="outline">Pending</Badge>;
 }
+
+// Memoize ArticleTable to prevent unnecessary re-renders
+export const ArticleTable = React.memo(ArticleTableComponent, (prevProps, nextProps) => {
+  // Custom comparison function for better performance
+  if (prevProps.loading !== nextProps.loading) return false;
+  if (prevProps.isRefetching !== nextProps.isRefetching) return false;
+  if (prevProps.sort !== nextProps.sort) return false;
+  if (prevProps.order !== nextProps.order) return false;
+  if (prevProps.deletingArticleId !== nextProps.deletingArticleId) return false;
+  if (prevProps.error !== nextProps.error) return false;
+  
+  // Deep comparison for articles array
+  if (prevProps.articles?.length !== nextProps.articles?.length) return false;
+  if (prevProps.articles && nextProps.articles) {
+    for (let i = 0; i < prevProps.articles.length; i++) {
+      if (prevProps.articles[i]?.id !== nextProps.articles[i]?.id) return false;
+    }
+  }
+  
+  return true;
+});
+
+ArticleTable.displayName = "ArticleTable";
 

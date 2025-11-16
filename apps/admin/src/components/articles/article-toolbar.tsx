@@ -44,7 +44,7 @@ type ArticleToolbarProps = {
   onGroupByStoryChange?: (enabled: boolean) => void;
 };
 
-export function ArticleToolbar({
+function ArticleToolbarComponent({
   searchValue,
   placeholder = "Search articles…",
   onSearchChange,
@@ -217,4 +217,9 @@ function truncateValue(value: string) {
   }
   return `${value.slice(0, 21)}…`;
 }
+
+// Memoize ArticleToolbar to prevent unnecessary re-renders
+export const ArticleToolbar = React.memo(ArticleToolbarComponent);
+
+ArticleToolbar.displayName = "ArticleToolbar";
 

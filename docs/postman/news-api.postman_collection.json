@@ -19,12 +19,8 @@
         ],
         "url": {
           "raw": "{{baseUrl}}/health",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "health"
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
         }
       }
     },
@@ -41,12 +37,8 @@
         ],
         "url": {
           "raw": "{{baseUrl}}/metrics",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "metrics"
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["metrics"]
         }
       }
     },
@@ -65,13 +57,86 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/feeds",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "feeds"
+              "raw": "{{baseUrl}}/feeds?limit=20&sort=createdAt&order=desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["feeds"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "",
+                  "description": "Search query (name or URL)",
+                  "disabled": true
+                },
+                {
+                  "key": "categories",
+                  "value": "",
+                  "description": "Filter by categories (comma-separated)",
+                  "disabled": true
+                },
+                {
+                  "key": "tags",
+                  "value": "",
+                  "description": "Filter by tags (comma-separated)",
+                  "disabled": true
+                },
+                {
+                  "key": "lastFetchStatuses",
+                  "value": "",
+                  "description": "Filter by fetch statuses (idle, fetching, success, warning, error)",
+                  "disabled": true
+                },
+                {
+                  "key": "isActive",
+                  "value": "true",
+                  "description": "Filter by active status (true/false)",
+                  "disabled": true
+                },
+                {
+                  "key": "hasIssues",
+                  "value": "",
+                  "description": "Filter feeds with issues (true/false)",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "createdAt",
+                  "description": "Sort field: name, createdAt, lastFetchAt, articleCount"
+                },
+                {
+                  "key": "order",
+                  "value": "desc",
+                  "description": "Sort order: asc, desc"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Number of results (1-100)"
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "description": "Pagination cursor",
+                  "disabled": true
+                }
               ]
+            }
+          }
+        },
+        {
+          "name": "Get Feed",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/feeds/{{feedId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["feeds", "{{feedId}}"]
             }
           }
         },
@@ -97,12 +162,35 @@
             },
             "url": {
               "raw": "{{baseUrl}}/feeds",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "feeds"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["feeds"]
+            }
+          }
+        },
+        {
+          "name": "Bulk Import Feeds",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"name\": \"TechCrunch\",\n    \"url\": \"https://techcrunch.com/feed/\",\n    \"category\": \"technology\",\n    \"tags\": [\"startups\"],\n    \"fetchIntervalMinutes\": 30,\n    \"isActive\": true\n  },\n  {\n    \"name\": \"The Verge\",\n    \"url\": \"https://www.theverge.com/rss/index.xml\",\n    \"category\": \"technology\",\n    \"tags\": [\"tech\"],\n    \"fetchIntervalMinutes\": 30,\n    \"isActive\": true\n  }\n]"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/feeds/import",
+              "host": ["{{baseUrl}}"],
+              "path": ["feeds", "import"]
             }
           }
         },
@@ -128,13 +216,8 @@
             },
             "url": {
               "raw": "{{baseUrl}}/feeds/{{feedId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "feeds",
-                "{{feedId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["feeds", "{{feedId}}"]
             }
           }
         },
@@ -151,13 +234,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/feeds/{{feedId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "feeds",
-                "{{feedId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["feeds", "{{feedId}}"]
             }
           }
         },
@@ -174,13 +252,59 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/feeds/{{feedId}}/stats",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "feeds",
-                "{{feedId}}",
-                "stats"
+              "host": ["{{baseUrl}}"],
+              "path": ["feeds", "{{feedId}}", "stats"]
+            }
+          }
+        },
+        {
+          "name": "Feed Articles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/feeds/{{feedId}}/articles?page=1&pageSize=20&sort=publishedAt&order=desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["feeds", "{{feedId}}", "articles"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Results per page (1-100)"
+                },
+                {
+                  "key": "sort",
+                  "value": "publishedAt",
+                  "description": "Sort field: publishedAt, fetchedAt, relevance"
+                },
+                {
+                  "key": "order",
+                  "value": "desc",
+                  "description": "Sort order: asc, desc"
+                },
+                {
+                  "key": "language",
+                  "value": "",
+                  "description": "Filter by language",
+                  "disabled": true
+                },
+                {
+                  "key": "enrichmentStatus",
+                  "value": "",
+                  "description": "Filter by enrichment status: pending, processing, success, failed",
+                  "disabled": true
+                }
               ]
             }
           }
@@ -198,14 +322,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/feeds/{{feedId}}/ingest",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "feeds",
-                "{{feedId}}",
-                "ingest"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["feeds", "{{feedId}}", "ingest"]
             }
           }
         }
@@ -214,6 +332,31 @@
     {
       "name": "Articles",
       "item": [
+        {
+          "name": "Article Highlights",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/articles/highlights?window=24h",
+              "host": ["{{baseUrl}}"],
+              "path": ["articles", "highlights"],
+              "query": [
+                {
+                  "key": "window",
+                  "value": "24h",
+                  "description": "Time window: 12h, 24h, 7d"
+                }
+              ]
+            }
+          }
+        },
         {
           "name": "List Articles",
           "request": {
@@ -227,28 +370,82 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/articles?page=1&pageSize=25&sort=publishedAt&order=desc",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "articles"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["articles"],
               "query": [
                 {
                   "key": "page",
-                  "value": "1"
+                  "value": "1",
+                  "description": "Page number"
                 },
                 {
                   "key": "pageSize",
-                  "value": "25"
+                  "value": "25",
+                  "description": "Results per page (1-100)"
+                },
+                {
+                  "key": "feedId",
+                  "value": "",
+                  "description": "Filter by feed ID",
+                  "disabled": true
+                },
+                {
+                  "key": "feedCategory",
+                  "value": "",
+                  "description": "Filter by feed category",
+                  "disabled": true
+                },
+                {
+                  "key": "language",
+                  "value": "",
+                  "description": "Filter by language",
+                  "disabled": true
+                },
+                {
+                  "key": "fromDate",
+                  "value": "",
+                  "description": "Filter articles from date (ISO 8601)",
+                  "disabled": true
+                },
+                {
+                  "key": "toDate",
+                  "value": "",
+                  "description": "Filter articles to date (ISO 8601)",
+                  "disabled": true
+                },
+                {
+                  "key": "enrichmentStatus",
+                  "value": "",
+                  "description": "Filter by enrichment status: pending, processing, success, failed",
+                  "disabled": true
+                },
+                {
+                  "key": "hasMedia",
+                  "value": "",
+                  "description": "Filter articles with media (true/false)",
+                  "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "description": "Search query",
+                  "disabled": true
+                },
+                {
+                  "key": "keywords",
+                  "value": "",
+                  "description": "Filter by keywords (comma-separated)",
+                  "disabled": true
                 },
                 {
                   "key": "sort",
-                  "value": "publishedAt"
+                  "value": "publishedAt",
+                  "description": "Sort field: publishedAt, fetchedAt, relevance"
                 },
                 {
                   "key": "order",
-                  "value": "desc"
+                  "value": "desc",
+                  "description": "Sort order: asc, desc"
                 }
               ]
             }
@@ -266,14 +463,34 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/articles/{{articleId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "articles",
-                "{{articleId}}"
+              "raw": "{{baseUrl}}/articles/{{articleId}}?includeRaw=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["articles", "{{articleId}}"],
+              "query": [
+                {
+                  "key": "includeRaw",
+                  "value": "false",
+                  "description": "Include raw HTML content (true/false)"
+                }
               ]
+            }
+          }
+        },
+        {
+          "name": "Delete Article",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/articles/{{articleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["articles", "{{articleId}}"]
             }
           }
         },
@@ -290,14 +507,26 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/articles/{{articleId}}/retry-enrichment",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "articles",
-                "{{articleId}}",
-                "retry-enrichment"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["articles", "{{articleId}}", "retry-enrichment"]
+            }
+          }
+        },
+        {
+          "name": "Bulk Retry Enrichment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/articles/retry-enrichment/bulk",
+              "host": ["{{baseUrl}}"],
+              "path": ["articles", "retry-enrichment", "bulk"]
             }
           }
         }
@@ -319,22 +548,315 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/logs?page=1&pageSize=25",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "logs"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["logs"],
               "query": [
                 {
                   "key": "page",
-                  "value": "1"
+                  "value": "1",
+                  "description": "Page number"
                 },
                 {
                   "key": "pageSize",
-                  "value": "25"
+                  "value": "25",
+                  "description": "Results per page (1-100)"
+                },
+                {
+                  "key": "feedId",
+                  "value": "",
+                  "description": "Filter by feed ID",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "Filter by status: running, success, failure",
+                  "disabled": true
+                },
+                {
+                  "key": "operation",
+                  "value": "",
+                  "description": "Filter by operation: fetch, feed_import",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search in error messages or feed names",
+                  "disabled": true
                 }
               ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sources",
+      "item": [
+        {
+          "name": "List Sources",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sources?limit=20&sort=createdAt&order=desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["sources"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "",
+                  "description": "Search query (base URL)",
+                  "disabled": true
+                },
+                {
+                  "key": "hasFeeds",
+                  "value": "",
+                  "description": "Filter sources with feeds (true/false)",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "createdAt",
+                  "description": "Sort field: baseUrl, createdAt, updatedAt"
+                },
+                {
+                  "key": "order",
+                  "value": "desc",
+                  "description": "Sort order: asc, desc"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Number of results (1-100)"
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "description": "Pagination cursor",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Source Feeds",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sources/{{sourceId}}/feeds?limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["sources", "{{sourceId}}", "feeds"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "description": "Number of results (1-100)"
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "description": "Pagination cursor",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Search",
+      "item": [
+        {
+          "name": "Search Articles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/search?q=technology&size=20&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "technology",
+                  "description": "Search query"
+                },
+                {
+                  "key": "from",
+                  "value": "",
+                  "description": "Filter articles from date (ISO 8601)",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "description": "Filter articles to date (ISO 8601)",
+                  "disabled": true
+                },
+                {
+                  "key": "language",
+                  "value": "",
+                  "description": "Filter by language",
+                  "disabled": true
+                },
+                {
+                  "key": "feedId",
+                  "value": "",
+                  "description": "Filter by feed ID",
+                  "disabled": true
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "description": "Number of results (1-100)"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": "Pagination offset"
+                },
+                {
+                  "key": "groupByStory",
+                  "value": "false",
+                  "description": "Group results by story (true/false)",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stories",
+      "item": [
+        {
+          "name": "List Stories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stories?size=20&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["stories"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "",
+                  "description": "Search query",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "",
+                  "description": "Filter stories from date (ISO 8601)",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "description": "Filter stories to date (ISO 8601)",
+                  "disabled": true
+                },
+                {
+                  "key": "language",
+                  "value": "",
+                  "description": "Filter by language",
+                  "disabled": true
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "description": "Number of results (1-100)"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": "Pagination offset"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Story Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stories/{{storyId}}?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["stories", "{{storyId}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number for articles"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Results per page (1-100)"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Settings",
+      "item": [
+        {
+          "name": "Get Search Settings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{adminKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/settings/search",
+              "host": ["{{baseUrl}}"],
+              "path": ["settings", "search"]
             }
           }
         }
@@ -357,7 +879,14 @@
     {
       "key": "articleId",
       "value": "<article-id>"
+    },
+    {
+      "key": "sourceId",
+      "value": "<source-id>"
+    },
+    {
+      "key": "storyId",
+      "value": "<story-id>"
     }
   ]
 }
-

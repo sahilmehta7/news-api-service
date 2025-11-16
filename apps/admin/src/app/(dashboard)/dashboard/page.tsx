@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 
 import { ActivityFeedSection } from "@/components/dashboard/activity-feed-section";
@@ -18,6 +19,26 @@ export const revalidate = 30;
 type DashboardPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+function DashboardSections({ snapshot }: { snapshot: Awaited<ReturnType<typeof getDashboardSnapshot>> }) {
+  return (
+    <>
+      <PipelineHealthSection pipeline={snapshot.pipeline} />
+
+      <div className="grid gap-4 xl:grid-cols-[2fr,1fr]">
+        <ArticlesThroughputSection articles={snapshot.articles} />
+        <AlertsSection alerts={snapshot.feedAlerts} />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[2fr,1fr]">
+        <ActivityFeedSection activity={snapshot.activity} />
+        <TopFeedsSection pipeline={snapshot.pipeline} />
+      </div>
+
+      <ApiOverviewSection api={snapshot.api} />
+    </>
+  );
+}
 
 export default async function DashboardPage(props: DashboardPageProps) {
   const searchParams = await props.searchParams;
@@ -51,19 +72,9 @@ export default async function DashboardPage(props: DashboardPageProps) {
         />
       </header>
 
-      <PipelineHealthSection pipeline={snapshot.pipeline} />
-
-      <div className="grid gap-4 xl:grid-cols-[2fr,1fr]">
-        <ArticlesThroughputSection articles={snapshot.articles} />
-        <AlertsSection alerts={snapshot.feedAlerts} />
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[2fr,1fr]">
-        <ActivityFeedSection activity={snapshot.activity} />
-        <TopFeedsSection pipeline={snapshot.pipeline} />
-      </div>
-
-      <ApiOverviewSection api={snapshot.api} />
+      <Suspense fallback={<DashboardLoadingSkeleton />}>
+        <DashboardSections snapshot={snapshot} />
+      </Suspense>
 
       <Card>
         <CardContent className="py-4 text-xs text-muted-foreground">
@@ -73,6 +84,23 @@ export default async function DashboardPage(props: DashboardPageProps) {
             : "—"}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function DashboardLoadingSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="h-32 animate-pulse rounded-lg bg-muted" />
+      <div className="grid gap-4 xl:grid-cols-[2fr,1fr]">
+        <div className="h-64 animate-pulse rounded-lg bg-muted" />
+        <div className="h-64 animate-pulse rounded-lg bg-muted" />
+      </div>
+      <div className="grid gap-4 xl:grid-cols-[2fr,1fr]">
+        <div className="h-64 animate-pulse rounded-lg bg-muted" />
+        <div className="h-64 animate-pulse rounded-lg bg-muted" />
+      </div>
+      <div className="h-32 animate-pulse rounded-lg bg-muted" />
     </div>
   );
 }
