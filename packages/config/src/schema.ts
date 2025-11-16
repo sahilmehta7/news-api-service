@@ -25,6 +25,8 @@ const monitoringSchema = z.object({
 
 const searchSchema = z.object({
   enabled: z.coerce.boolean().default(false),
+  embeddingDims: z.coerce.number().int().positive().default(768),
+  indexVersion: z.coerce.number().int().positive().default(2),
   elasticsearch: z.object({
     node: z.string().url().default("http://localhost:9200"),
     username: z.string().optional(),

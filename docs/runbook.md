@@ -7,13 +7,15 @@
 - Environment variables configured (`DATABASE_URL`, `API_ADMIN_KEY`, optional monitoring overrides, `SEARCH_ENABLED`, Elasticsearch connection vars, embedding provider settings, and `NEXT_PUBLIC_API_BASE_URL`/`NEXT_PUBLIC_WORKER_METRICS_URL`/`NEXT_PUBLIC_API_METRICS_URL` for the admin UI).
 - Network access from the worker to external RSS sources.
 - Elasticsearch 8.x (optional, for search and clustering features). Set `SEARCH_ENABLED=true` and configure `ELASTICSEARCH_NODE`, `ELASTICSEARCH_USERNAME`, `ELASTICSEARCH_PASSWORD`, `ELASTICSEARCH_INDEX_PREFIX`, and `SEARCH_DEFAULT_LANGUAGE`.
-- Embedding provider configuration (optional, defaults to mock provider):
+- Embedding provider configuration (enable local GTE by setting provider to http):
   - `EMBEDDING_PROVIDER` (`mock` | `http` | `node`)
   - `EMBEDDING_ENDPOINT` (HTTP provider)
   - `EMBEDDING_TIMEOUT_MS`
   - `EMBEDDING_MAX_RETRIES`, `EMBEDDING_RETRY_INITIAL_DELAY_MS`, `EMBEDDING_RETRY_MAX_DELAY_MS`
   - `EMBEDDING_CIRCUIT_BREAKER_FAILURE_THRESHOLD`, `EMBEDDING_CIRCUIT_BREAKER_SUCCESS_THRESHOLD`, `EMBEDDING_CIRCUIT_BREAKER_TIMEOUT_MS`
   - `EMBEDDING_MODEL` (Node provider placeholder)
+  - `EMBEDDING_DIMENSIONS` (optional override; default 768)
+  - `SEARCH_INDEX_VERSION` (default 2), `SEARCH_EMBEDDING_DIMS` (default 768)
 
 ## First-Time Setup
 
@@ -124,6 +126,29 @@
   ```bash
   npm run search:backfill -- --fromDays 30 --batch 1000
   ```
+
+- **Start local GTE embedding service (CPU)**  
+  ```bash
+  cd python/embeddings-service
+  python -m venv .venv
+  source .venv/bin/activate
+  pip install -r requirements.txt
+  uvicorn main:app --host 0.0.0.0 --port 8001
+  ```
+  Verify:
+  ```bash
+  curl -s http://localhost:8001/health | jq
+  curl -s -X POST http://localhost:8001/embed -H "Content-Type: application/json" -d '{"text":"hello world"}' | jq '.dims'
+  ```
+  Configure the API/worker to use it:
+  ```bash
+  export EMBEDDING_PROVIDER=http
+  export EMBEDDING_ENDPOINT=http://localhost:8001/embed
+  export SEARCH_ENABLED=true
+  export SEARCH_INDEX_VERSION=2
+  export SEARCH_EMBEDDING_DIMS=768
+  ```
+  Re-run the worker/API and backfill as needed.
 
 - **Verify Elasticsearch health**  
   Check cluster status via API health endpoint:

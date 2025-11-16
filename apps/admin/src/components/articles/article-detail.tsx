@@ -12,6 +12,7 @@ import {
   SheetDescription
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Article } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { retryArticleEnrichment, useArticleDetail } from "@/lib/api/articles";
@@ -254,8 +255,8 @@ export function ArticleDetail({
 
             <section className="grid gap-3">
               <SectionTitle>Enrichment Signals</SectionTitle>
-              <JsonViewer label="Open Graph" data={currentArticle.openGraph} />
-              <JsonViewer label="Twitter Card" data={currentArticle.twitterCard} />
+              <OpenGraphCard openGraph={currentArticle.openGraph} />
+              <TwitterCard twitter={currentArticle.twitterCard} />
               <JsonViewer label="Custom Metadata" data={currentArticle.metadata} />
             </section>
 
@@ -304,6 +305,92 @@ export function ArticleDetail({
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+function TwitterCard({
+  twitter
+}: {
+  twitter: Record<string, unknown> | null | undefined;
+}) {
+  const tw = twitter ?? {};
+
+  const getString = (key: string): string | null => {
+    const value = tw[key];
+    return typeof value === "string" && value.trim() ? value : null;
+  };
+
+  const getFirstFromArrayOrString = (value: unknown): string | null => {
+    if (typeof value === "string") {
+      return value;
+    }
+    if (Array.isArray(value) && value.length > 0) {
+      const first = value[0];
+      return typeof first === "string" ? first : null;
+    }
+    return null;
+  };
+
+  const title = getString("twitter:title") ?? getString("title") ?? null;
+  const description = getString("twitter:description") ?? getString("description") ?? null;
+  const url = getString("twitter:url") ?? getString("url") ?? null;
+  const siteName = getString("twitter:site") ?? null;
+  const type = getString("twitter:card") ?? null;
+  const imageRaw = tw["twitter:image"] ?? tw["twitter:image:src"] ?? null;
+  const imageUrl = getFirstFromArrayOrString(imageRaw);
+
+  const hasAny =
+    Boolean(title) ||
+    Boolean(description) ||
+    Boolean(siteName) ||
+    Boolean(type) ||
+    Boolean(url) ||
+    Boolean(imageUrl);
+
+  return (
+    <Card>
+      <CardHeader className="pb-4">
+        <CardTitle className="text-base">Twitter Card</CardTitle>
+        <CardDescription>
+          {siteName ? siteName : "No site"} {type ? `· ${type}` : null}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {hasAny ? (
+          <div className="flex gap-4">
+            {imageUrl ? (
+              <div className="shrink-0">
+                <img
+                  src={imageUrl}
+                  alt={title ?? "Twitter card image"}
+                  className="h-24 w-24 rounded-md border object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            ) : null}
+            <div className="min-w-0 space-y-1.5">
+              {title ? <div className="truncate text-sm font-medium">{title}</div> : null}
+              {description ? (
+                <p className="line-clamp-3 text-sm text-muted-foreground">{description}</p>
+              ) : null}
+              {url ? (
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block truncate text-xs text-primary underline"
+                  title={url}
+                >
+                  {url}
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <div className="text-xs text-muted-foreground">No Twitter Card data captured.</div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -357,6 +444,97 @@ function JsonViewer({
         <div className="text-xs text-muted-foreground">No data captured.</div>
       )}
     </div>
+  );
+}
+
+function OpenGraphCard({
+  openGraph
+}: {
+  openGraph: Record<string, unknown> | null | undefined;
+}) {
+  const og = openGraph ?? {};
+
+  const getString = (key: string): string | null => {
+    const value = og[key];
+    return typeof value === "string" && value.trim() ? value : null;
+  };
+
+  const getFirstFromArrayOrString = (value: unknown): string | null => {
+    if (typeof value === "string") {
+      return value;
+    }
+    if (Array.isArray(value) && value.length > 0) {
+      const first = value[0];
+      return typeof first === "string" ? first : null;
+    }
+    return null;
+  };
+
+  const title = getString("og:title") ?? getString("title") ?? null;
+  const description = getString("og:description") ?? getString("description") ?? null;
+  const url = getString("og:url") ?? getString("url") ?? null;
+  const siteName = getString("og:site_name") ?? null;
+  const type = getString("og:type") ?? null;
+  const imageRaw =
+    og["og:image:url"] ??
+    og["og:image:secure_url"] ??
+    og["og:image"] ??
+    og["twitter:image"] ??
+    null;
+  const imageUrl = getFirstFromArrayOrString(imageRaw);
+
+  const hasAny =
+    Boolean(title) ||
+    Boolean(description) ||
+    Boolean(siteName) ||
+    Boolean(type) ||
+    Boolean(url) ||
+    Boolean(imageUrl);
+
+  return (
+    <Card>
+      <CardHeader className="pb-4">
+        <CardTitle className="text-base">Open Graph</CardTitle>
+        <CardDescription>
+          {siteName ? siteName : "No site name"} {type ? `· ${type}` : null}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {hasAny ? (
+          <div className="flex gap-4">
+            {imageUrl ? (
+              <div className="shrink-0">
+                <img
+                  src={imageUrl}
+                  alt={title ?? "Open Graph image"}
+                  className="h-24 w-24 rounded-md border object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            ) : null}
+            <div className="min-w-0 space-y-1.5">
+              {title ? <div className="truncate text-sm font-medium">{title}</div> : null}
+              {description ? (
+                <p className="line-clamp-3 text-sm text-muted-foreground">{description}</p>
+              ) : null}
+              {url ? (
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block truncate text-xs text-primary underline"
+                  title={url}
+                >
+                  {url}
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <div className="text-xs text-muted-foreground">No Open Graph data captured.</div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

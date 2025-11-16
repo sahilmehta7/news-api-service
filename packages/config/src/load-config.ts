@@ -58,6 +58,8 @@ export function loadConfig(options: { env?: NodeJS.ProcessEnv } = {}): AppConfig
     },
           search: {
             enabled: coerceBoolean(env.SEARCH_ENABLED),
+            embeddingDims: env.SEARCH_EMBEDDING_DIMS,
+            indexVersion: env.SEARCH_INDEX_VERSION,
             elasticsearch: {
               node: env.ELASTICSEARCH_NODE,
               username: env.ELASTICSEARCH_USERNAME,

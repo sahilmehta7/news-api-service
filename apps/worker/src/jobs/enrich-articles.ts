@@ -281,6 +281,7 @@ async function enrichArticle(
       fetched_at: article.fetchedAt.toISOString(),
       story_id: null,
       content_hash: null,
+      has_embedding: true,
       embedding
     };
 

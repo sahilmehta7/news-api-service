@@ -11,17 +11,49 @@ interface AppProvidersProps {
   children: React.ReactNode;
 }
 
-function ClientOnlyProviders({ children }: AppProvidersProps) {
-  // During SSR/prerendering, render children directly to avoid React invariant 31 errors
-  // Check if we're in a browser environment
-  const isClient = typeof window !== "undefined";
-  
-  if (!isClient) {
-    // During SSR, render children directly without providers using React.Fragment
-    return <React.Fragment>{children}</React.Fragment>;
-  }
+export function AppProviders({ children }: AppProvidersProps) {
+  // Truncate extremely large string logs (e.g., raw HTML/CSS) in the browser console
+  React.useEffect(() => {
+    const originalLog = console.log;
+    const originalDebug = console.debug;
+    const MAX_LEN = 4000;
 
-  // Once in browser, render full provider stack
+    function sanitizeArgs(args: unknown[]) {
+      return args.map((arg) => {
+        if (typeof arg === "string" && arg.length > MAX_LEN) {
+          // Heuristic: if it looks like minified CSS/HTML, drop it entirely to reduce noise.
+          const looksLikeStylesheet =
+            arg.includes("{") &&
+            arg.includes("}") &&
+            (arg.includes("@media") || arg.includes(".container") || arg.includes("body"));
+          if (looksLikeStylesheet) {
+            return "[omitted large stylesheet response]";
+          }
+          // Otherwise, truncate to a reasonable preview.
+          return `${arg.slice(0, MAX_LEN)}… [truncated ${arg.length - MAX_LEN} chars]`;
+        }
+        return arg;
+      });
+    }
+
+    // eslint-disable-next-line no-console
+    console.log = (...args: unknown[]) => {
+      originalLog.apply(console, sanitizeArgs(args));
+    };
+    // eslint-disable-next-line no-console
+    console.debug = (...args: unknown[]) => {
+      originalDebug.apply(console, sanitizeArgs(args));
+    };
+
+    return () => {
+      // Restore originals on unmount
+      // eslint-disable-next-line no-console
+      console.log = originalLog;
+      // eslint-disable-next-line no-console
+      console.debug = originalDebug;
+    };
+  }, []);
+
   return (
     <ThemeProvider>
       <NuqsAdapter>
@@ -32,9 +64,5 @@ function ClientOnlyProviders({ children }: AppProvidersProps) {
       </NuqsAdapter>
     </ThemeProvider>
   );
-}
-
-export function AppProviders({ children }: AppProvidersProps) {
-  return <ClientOnlyProviders>{children}</ClientOnlyProviders>;
 }
 

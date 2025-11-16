@@ -1,0 +1,37 @@
+groups:
+  - name: embeddings-and-search
+    rules:
+      - alert: EmbeddingErrorsHigh
+        expr: sum(rate(news_embedding_requests_total{status="error"}[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Embedding errors are elevated"
+          description: "Embedding error rate > 0.5 req/s over 10m"
+      - alert: CircuitBreakerOpen
+        expr: max(news_embedding_circuit_breaker_state) == 2
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Embedding circuit breaker open"
+          description: "Circuit breaker held OPEN for >=5m"
+      - alert: KNNLatencyHigh
+        expr: histogram_quantile(0.95, sum(rate(news_search_knn_query_duration_seconds_bucket[5m])) by (le)) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "k-NN p95 latency high"
+          description: "p95 k-NN latency exceeded 800ms for 10m"
+      - alert: IndexFailures
+        expr: sum(rate(news_search_index_docs_total{status="failure"}[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Indexing failures elevated"
+          description: "Failures > 0.1 docs/s over 10m"
+
+

@@ -109,7 +109,11 @@ async function main() {
           article.content ??
           `${article.title} ${article.summary ?? ""}`;
 
-        const embedding = await embeddingProvider.embed(textForEmbedding);
+        // Keep payloads reasonable; tokenizer truncates to 512 tokens anyway
+        const MAX_PAYLOAD_CHARS = 200_000;
+        const inputForEmbedding =
+          (textForEmbedding ?? "").slice(0, MAX_PAYLOAD_CHARS);
+        const embedding = await embeddingProvider.embed(inputForEmbedding);
 
         const articleDoc: ArticleDocument = {
           id: article.id,
@@ -128,6 +132,7 @@ async function main() {
           fetched_at: article.fetchedAt.toISOString(),
           story_id: article.storyId ?? null,
           content_hash: article.contentHash ?? null,
+          has_embedding: true,
           embedding
         };
 

@@ -118,7 +118,7 @@ export const feedListQuerySchema = z.object({
   order: z
     .enum(["asc", "desc"])
     .default("desc"),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  limit: z.coerce.number().int().min(1).max(200).default(20),
   cursor: z
     .string()
     .trim()

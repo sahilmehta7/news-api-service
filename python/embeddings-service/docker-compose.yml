@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  embeddings:
+    image: gte-embeddings:cpu
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+profiles:
+  cache:
+    - embeddings
+  token:
+    - embeddings
+
+# Usage:
+# Cache profile (recommended):
+#   docker compose --profile cache up --build \
+#     -e HF_HOME=/root/.cache/huggingface \
+#     -v ${HOME}/.cache/huggingface:/root/.cache/huggingface
+#
+# Token profile (alternative):
+#   docker compose --profile token up --build \
+#     -e HUGGINGFACE_HUB_TOKEN=${HUGGINGFACE_HUB_TOKEN}
+
+

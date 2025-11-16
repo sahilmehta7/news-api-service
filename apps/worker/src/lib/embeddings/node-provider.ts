@@ -1,5 +1,6 @@
 import { createLogger } from "@news-api/logger";
 import type { EmbeddingProvider } from "./provider.js";
+import { getEmbeddingDimensions } from "./dimensions.js";
 
 const logger = createLogger({ name: "embeddings" });
 
@@ -18,7 +19,7 @@ const logger = createLogger({ name: "embeddings" });
  * - Handling model initialization and memory management
  */
 export class NodeEmbeddingProvider implements EmbeddingProvider {
-  private readonly dimensions = 384;
+  private readonly dimensions = getEmbeddingDimensions();
   private readonly modelName: string;
   private model: any = null; // Will be the transformers pipeline
 

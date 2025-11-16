@@ -9,7 +9,8 @@ export function getIndexName(
   baseName: "articles" | "stories"
 ): string {
   const prefix = config.search.elasticsearch.indexPrefix;
-  return `${prefix}-${baseName}-v1`;
+  const version = config.search.indexVersion ?? 2;
+  return `${prefix}-${baseName}-v${version}`;
 }
 
 export function getArticlesIndexName(config: AppConfig): string {
@@ -59,9 +60,10 @@ const articlesMapping = {
       fetched_at: { type: "date" },
       story_id: { type: "keyword" },
       content_hash: { type: "keyword" },
+      has_embedding: { type: "boolean" },
       embedding: {
         type: "dense_vector",
-        dims: 384,
+        dims: 0, // placeholder, will be filled at bootstrap from config
         index: true,
         similarity: "cosine"
       }
@@ -87,7 +89,7 @@ const storiesMapping = {
       time_range_end: { type: "date" },
       centroid_embedding: {
         type: "dense_vector",
-        dims: 384,
+        dims: 0, // placeholder, will be filled at bootstrap from config
         index: true,
         similarity: "cosine"
       }
@@ -108,9 +110,20 @@ export async function bootstrapArticlesIndex(
     return;
   }
 
+  // Clone mapping and inject dims from config
+  const dims = config.search.embeddingDims;
+  const mapping = JSON.parse(JSON.stringify(articlesMapping));
+  mapping.mappings.properties.embedding.dims = dims;
+  // Add HNSW index options for faster ANN
+  mapping.mappings.properties.embedding.index_options = {
+    type: "hnsw",
+    m: 16,
+    ef_construction: 100
+  };
+
   await client.indices.create({
     index: indexName,
-    ...articlesMapping
+    ...mapping
   });
 
   logger.info({ index: indexName }, "Articles index created");
@@ -129,9 +142,18 @@ export async function bootstrapStoriesIndex(
     return;
   }
 
+  const dims = config.search.embeddingDims;
+  const mapping = JSON.parse(JSON.stringify(storiesMapping));
+  mapping.mappings.properties.centroid_embedding.dims = dims;
+  mapping.mappings.properties.centroid_embedding.index_options = {
+    type: "hnsw",
+    m: 16,
+    ef_construction: 100
+  };
+
   await client.indices.create({
     index: indexName,
-    ...storiesMapping
+    ...mapping
   });
 
   logger.info({ index: indexName }, "Stories index created");

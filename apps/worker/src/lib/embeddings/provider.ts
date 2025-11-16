@@ -6,6 +6,7 @@ import {
   type CircuitBreakerOptions
 } from "./circuit-breaker.js";
 import { workerMetrics } from "../../metrics/registry.js";
+import { getEmbeddingDimensions } from "./dimensions.js";
 
 const logger = createLogger({ name: "embeddings" });
 
@@ -65,7 +66,7 @@ async function retryWithBackoff<T>(
 }
 
 export class MockEmbeddingProvider implements EmbeddingProvider {
-  private readonly dimensions = 384;
+  private readonly dimensions = getEmbeddingDimensions();
 
   getDimensions(): number {
     return this.dimensions;
@@ -87,7 +88,7 @@ export class MockEmbeddingProvider implements EmbeddingProvider {
 }
 
 export class HTTPEmbeddingProvider implements EmbeddingProvider {
-  private readonly dimensions = 384;
+  private readonly dimensions = getEmbeddingDimensions();
   private readonly endpoint: string;
   private readonly timeout: number;
   private readonly circuitBreaker: CircuitBreaker;
@@ -202,15 +203,24 @@ export class HTTPEmbeddingProvider implements EmbeddingProvider {
       });
 
       if (!response.ok) {
+        // Gracefully degrade on 4xx that indicate unprocessable content (e.g., 422)
+        if (response.status === 422) {
+          logger.warn(
+            { status: response.status },
+            "Embedding API returned 422, returning dummy embedding"
+          );
+          return this.generateDummyEmbedding(text);
+        }
         throw new Error(`Embedding API returned ${response.status}`);
       }
 
       const data = await response.json();
-      if (!Array.isArray(data.embedding) || data.embedding.length !== this.dimensions) {
+      const embedding = Array.isArray(data?.embedding) ? data.embedding : null;
+      if (!embedding || embedding.length !== this.dimensions) {
         throw new Error("Invalid embedding response format");
       }
 
-      return data.embedding;
+      return embedding;
     } finally {
       clearTimeout(timeoutId);
     }

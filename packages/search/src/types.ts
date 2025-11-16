@@ -13,6 +13,7 @@ export interface ArticleDocument {
   fetched_at: string;
   story_id: string | null;
   content_hash: string | null;
+  has_embedding?: boolean;
   embedding?: number[];
 }
 
