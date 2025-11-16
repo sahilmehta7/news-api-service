@@ -244,10 +244,10 @@ export type StoryListItem = z.infer<typeof storyListItemSchema>;
 export const storyListResponseSchema = z.object({
   data: z.array(storyListItemSchema),
   pagination: z.object({
-    offset: z.number().int().nonnegative(),
-    size: z.number().int().positive(),
-    total: z.number().int().nonnegative(),
-    hasNextPage: z.boolean()
+    limit: z.number().int().positive(),
+    nextCursor: z.string().nullable(),
+    hasNextPage: z.boolean(),
+    total: z.number().int().nonnegative()
   })
 });
 

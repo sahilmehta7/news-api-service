@@ -45,6 +45,14 @@ export const storyListQuerySchema = z.object({
     .optional()
     .transform((value) => (value ? new Date(value) : undefined)),
   language: z.string().optional(),
+  // New cursor-based pagination (preferred)
+  cursor: z.string().optional(),
+  limit: z
+    .string()
+    .optional()
+    .transform((value) => (value ? Number(value) : 25))
+    .pipe(z.number().int().min(1).max(100).default(25)),
+  // Back-compat offset-based pagination (deprecated)
   size: z
     .string()
     .optional()
@@ -54,7 +62,30 @@ export const storyListQuerySchema = z.object({
     .string()
     .optional()
     .transform((value) => (value ? Number(value) : 0))
-    .pipe(z.number().int().min(0).default(0))
+    .pipe(z.number().int().min(0).default(0)),
+  // New filters: categories, tags (CSV → string[])
+  categories: z
+    .string()
+    .optional()
+    .transform((value) =>
+      value
+        ? value
+            .split(",")
+            .map((v) => v.trim())
+            .filter(Boolean)
+        : undefined
+    ),
+  tags: z
+    .string()
+    .optional()
+    .transform((value) =>
+      value
+        ? value
+            .split(",")
+            .map((v) => v.trim())
+            .filter(Boolean)
+        : undefined
+    )
 });
 
 export type StoryListQuery = z.infer<typeof storyListQuerySchema>;

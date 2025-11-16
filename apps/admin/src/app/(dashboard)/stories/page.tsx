@@ -9,16 +9,18 @@ import { useStories, type StoryQuery } from "@/lib/api/stories";
 import { useDebounce } from "@/hooks/use-debounce";
 import { toast } from "sonner";
 
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
 
 const searchParamConfig = {
-  offset: parseAsInteger.withDefault(0),
-  size: parseAsInteger.withDefault(DEFAULT_PAGE_SIZE),
+  cursor: parseAsString,
+  limit: parseAsInteger.withDefault(DEFAULT_PAGE_SIZE),
   q: parseAsString,
   from: parseAsString,
   to: parseAsString,
-  language: parseAsString
+  language: parseAsString,
+  categories: parseAsString,
+  tags: parseAsString
 } as const;
 
 export default function StoriesPage() {
@@ -30,8 +32,10 @@ export default function StoriesPage() {
     from: searchState.from || undefined,
     to: searchState.to || undefined,
     language: searchState.language || undefined,
-    size: searchState.size,
-    offset: searchState.offset
+    limit: searchState.limit,
+    cursor: searchState.cursor || null,
+    categories: searchState.categories || undefined,
+    tags: searchState.tags || undefined
   };
 
   const { data, error, isLoading, mutate } = useStories(query);
@@ -68,13 +72,27 @@ export default function StoriesPage() {
       </div>
 
       <div className="space-y-4">
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 md:flex-row">
           <input
             type="text"
             placeholder="Search stories..."
             value={searchState.q ?? ""}
-            onChange={(e) => setSearchState({ q: e.target.value || null, offset: 0 })}
+            onChange={(e) => setSearchState({ q: e.target.value || null, cursor: null })}
             className="flex-1 px-3 py-2 border rounded-md"
+          />
+          <input
+            type="text"
+            placeholder="Categories (CSV)"
+            value={searchState.categories ?? ""}
+            onChange={(e) => setSearchState({ categories: e.target.value || null, cursor: null })}
+            className="px-3 py-2 border rounded-md"
+          />
+          <input
+            type="text"
+            placeholder="Tags (CSV)"
+            value={searchState.tags ?? ""}
+            onChange={(e) => setSearchState({ tags: e.target.value || null, cursor: null })}
+            className="px-3 py-2 border rounded-md"
           />
         </div>
 
@@ -157,11 +175,11 @@ export default function StoriesPage() {
             {data?.pagination.hasNextPage && (
               <div className="flex justify-center pt-4">
                 <Button
-                  onClick={() =>
-                    setSearchState({
-                      offset: (searchState.offset ?? 0) + (searchState.size ?? DEFAULT_PAGE_SIZE)
-                    })
-                  }
+                  onClick={() => {
+                    if (data?.pagination.nextCursor) {
+                      setSearchState({ cursor: data.pagination.nextCursor });
+                    }
+                  }}
                   variant="outline"
                 >
                   Load More

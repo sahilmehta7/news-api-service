@@ -13,8 +13,10 @@ export type StoryQuery = {
   from?: string;
   to?: string;
   language?: string;
-  size?: number;
-  offset?: number;
+  limit?: number;
+  cursor?: string | null;
+  categories?: string; // CSV
+  tags?: string; // CSV
 };
 
 export function useStories(query: StoryQuery) {

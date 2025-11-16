@@ -159,13 +159,32 @@ export async function searchStories(
     return {
       data: [],
       pagination: {
-        offset: query.offset,
-        size: query.size,
-        total: 0,
-        hasNextPage: false
+        limit: query.limit ?? 25,
+        nextCursor: null,
+        hasNextPage: false,
+        total: 0
       }
     };
   }
+
+  function decodeCursor(cursor?: string): number {
+    if (!cursor) return 0;
+    try {
+      const json = Buffer.from(cursor, "base64").toString("utf8");
+      const payload = JSON.parse(json) as { o: number };
+      return typeof payload.o === "number" && payload.o >= 0 ? payload.o : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function encodeCursor(offset: number): string {
+    const json = JSON.stringify({ o: offset });
+    return Buffer.from(json, "utf8").toString("base64");
+  }
+
+  const limit = query.limit ?? query.size ?? 25;
+  const offset = query.cursor ? decodeCursor(query.cursor) : (query.offset ?? 0);
 
   const indexName = getStoriesIndexName(config);
   const embedding = query.q ? await getQueryEmbedding(app, query.q) : undefined;
@@ -211,8 +230,8 @@ export async function searchStories(
 
   const searchParams: any = {
     index: indexName,
-    size: query.size,
-    from: query.offset
+    size: limit,
+    from: offset
   };
 
   if (embedding) {
@@ -247,7 +266,8 @@ export async function searchStories(
       feed: {
         select: {
           name: true,
-          category: true
+          category: true,
+          tags: true
         }
       },
       articleMetadata: true
@@ -255,7 +275,7 @@ export async function searchStories(
     orderBy: {
       publishedAt: "desc"
     },
-    take: query.size * 5
+    take: limit * 5
   });
 
   const articlesByStory = new Map<string, typeof articles>();
@@ -268,9 +288,30 @@ export async function searchStories(
     }
   }
 
+  const requestedCategories = query.categories;
+  const requestedTags = query.tags;
+  const requestedLanguage = query.language;
+
   const data = hits
     .map((hit) => {
-      const storyArticles = articlesByStory.get(hit._source.story_id) || [];
+      const storyArticlesAll = articlesByStory.get(hit._source.story_id) || [];
+
+      // Apply language/category/tag filters at article level and keep stories with at least one match
+      const storyArticles = storyArticlesAll.filter((a) => {
+        const matchesLanguage =
+          !requestedLanguage || (a.language ?? undefined) === requestedLanguage;
+        const matchesCategory =
+          !requestedCategories || requestedCategories.length === 0
+            ? true
+            : requestedCategories.includes((a.feed.category ?? "").trim());
+        const feedTags = ensureStringArray((a.feed as any).tags);
+        const matchesTags =
+          !requestedTags || requestedTags.length === 0
+            ? true
+            : feedTags.some((t) => requestedTags.includes(t));
+        return matchesLanguage && matchesCategory && matchesTags;
+      });
+
       return {
         story_id: hit._source.story_id,
         title_rep: hit._source.title_rep,
@@ -291,15 +332,17 @@ export async function searchStories(
     .filter((story) => story.article_count > 0); // Filter out stories with 0 articles
 
   // Adjust total count to exclude orphaned stories
-  const filteredTotal = data.length;
+  const filteredTotal = data.length + offset;
+  const hasNextPage = data.length === limit && (offset + limit) < (typeof total === "number" ? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER);
+  const nextCursor = hasNextPage ? encodeCursor(offset + limit) : null;
 
   return {
     data,
     pagination: {
-      offset: query.offset,
-      size: query.size,
-      total: filteredTotal,
-      hasNextPage: query.offset + query.size < filteredTotal
+      limit,
+      nextCursor,
+      hasNextPage,
+      total: filteredTotal
     }
   };
 }
