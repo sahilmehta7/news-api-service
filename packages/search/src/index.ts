@@ -10,3 +10,5 @@ export {
 } from "./indices.js";
 export type { ArticleDocument, StoryDocument, IndexHealth } from "./types.js";
 
+export { expandQueryWithSynonyms } from "./synonyms/loader.js";
+export { rerankCandidates, type RerankerCandidate } from "./rerank.js";

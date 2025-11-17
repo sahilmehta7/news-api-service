@@ -1,5 +1,5 @@
 import { Readability } from "@mozilla/readability";
-import { JSDOM } from "jsdom";
+import { JSDOM, VirtualConsole } from "jsdom";
 
 const RAW_HTML_MAX_LENGTH = 2_000_000;
 const PLAIN_TEXT_MAX_LENGTH = 200_000;
@@ -25,10 +25,30 @@ export function extractArticleContent(
   const truncatedRaw = truncate(html, RAW_HTML_MAX_LENGTH);
 
   try {
+    // Create a virtual console that suppresses CSS parsing errors
+    // These errors are non-critical for content extraction
+    const virtualConsole = new VirtualConsole();
+    virtualConsole.on("error", (error) => {
+      const message = error?.message ?? error?.toString() ?? "";
+      // Suppress CSS-related errors - they don't affect content extraction
+      if (
+        message.includes("CSS") ||
+        message.includes("stylesheet") ||
+        message.includes("Could not parse CSS")
+      ) {
+        return; // Suppress CSS parsing errors silently
+      }
+      // For other errors, let them propagate normally
+      // JSDOM will handle them or they'll be caught by the outer try-catch
+    });
+
     const dom = new JSDOM(html, {
       url,
       contentType: "text/html",
-      pretendToBeVisual: false
+      pretendToBeVisual: false,
+      resources: "usable",
+      runScripts: "outside-only",
+      virtualConsole
     });
 
     const reader = new Readability(dom.window.document);

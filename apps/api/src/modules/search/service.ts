@@ -24,14 +24,50 @@ export async function searchArticles(
       pageSize: query.size,
       q: query.q,
       feedId: query.feedId,
+      feedCategory: query.feedCategory,
       language: query.language,
       fromDate: query.from,
-      toDate: query.to
+      toDate: query.to,
+      sort: "relevance", // Search results are always sorted by relevance
+      order: "desc",
+      keywords: []
     };
     return listArticles(app, articleQuery);
   }
 
   const indexName = getArticlesIndexName(config);
+  
+  // If feedCategory is provided, fetch all feed IDs for that category
+  let feedIdsForCategory: string[] | undefined;
+  if (query.feedCategory && query.feedCategory.trim()) {
+    // Make category matching case-insensitive
+    const categoryFilter = query.feedCategory.trim();
+    const feedsWithCategory = await app.db.feed.findMany({
+      where: {
+        category: {
+          equals: categoryFilter,
+          mode: "insensitive" // Case-insensitive matching
+        }
+      },
+      select: {
+        id: true
+      }
+    });
+    feedIdsForCategory = feedsWithCategory.map((feed) => feed.id);
+    
+    // If no feeds found for this category, return empty results
+    if (feedIdsForCategory.length === 0) {
+      return {
+        data: [],
+        pagination: {
+          page: Math.floor(query.offset / query.size) + 1,
+          pageSize: query.size,
+          total: 0,
+          hasNextPage: false
+        }
+      };
+    }
+  }
   
   // Build filters (shared for both queries)
   const filters: any[] = [];
@@ -60,10 +96,17 @@ export async function searchArticles(
       }
     });
   }
+  // Filter by feedId(s): use explicit feedId if provided, otherwise use feedIds from category
   if (query.feedId) {
     filters.push({
       term: {
         feed_id: query.feedId
+      }
+    });
+  } else if (feedIdsForCategory && feedIdsForCategory.length > 0) {
+    filters.push({
+      terms: {
+        feed_id: feedIdsForCategory
       }
     });
   }
@@ -96,19 +139,48 @@ export async function searchArticles(
 
   // Apply story diversification if requested
   let articleIds: string[];
+  let moreCountMap: Map<string, number> = new Map();
   if (query.groupByStory) {
-    const diversified = diversifyByStory(scoredResults, query.size);
-    articleIds = diversified.map((item) => item.id);
+    // For story grouping, we need to diversify first, then paginate
+    // Get enough diversified results to cover the offset + page size
+    const diversifiedSize = query.offset + query.size;
+    const diversified = diversifyByStory(scoredResults, diversifiedSize);
+    // Apply pagination to diversified results
+    const paginatedDiversified = diversified.slice(query.offset, query.offset + query.size);
+    articleIds = paginatedDiversified.map((item) => item.id);
+    // Preserve moreCount metadata for story grouping
+    for (const item of paginatedDiversified) {
+      if (item.moreCount !== undefined && item.moreCount > 0) {
+        moreCountMap.set(item.id, item.moreCount);
+      }
+    }
   } else {
-    articleIds = scoredResults.slice(0, query.size).map((r) => r.id);
+    // Apply pagination with offset before taking page size
+    articleIds = scoredResults.slice(query.offset, query.offset + query.size).map((r) => r.id);
   }
 
   // Fetch full article data from database
+  // No need to filter by feedCategory here since we already filtered at Elasticsearch level
   const articles = await app.db.article.findMany({
     where: {
       id: { in: articleIds }
     },
-    include: {
+    select: {
+      id: true,
+      feedId: true,
+      title: true,
+      summary: true,
+      content: true,
+      sourceUrl: true,
+      canonicalUrl: true,
+      author: true,
+      language: true,
+      keywords: true,
+      publishedAt: true,
+      fetchedAt: true,
+      createdAt: true,
+      updatedAt: true,
+      storyId: true,
       feed: {
         select: {
           name: true,
@@ -127,7 +199,13 @@ export async function searchArticles(
     .map((id) => {
       const article = articlesById.get(id);
       if (!article) return null;
-      return serializeArticleFromEntity(article);
+      const serialized = serializeArticleFromEntity(article);
+      // Add moreCount if available (for story grouping)
+      const moreCount = moreCountMap.get(id);
+      return {
+        ...serialized,
+        moreCount
+      };
     })
     .filter((article): article is NonNullable<typeof article> => article !== null);
 
@@ -739,6 +817,7 @@ function serializeArticleFromEntity(article: {
   fetchedAt: Date;
   createdAt: Date;
   updatedAt: Date;
+  storyId: string | null;
   feed: {
     name: string;
     category: string | null;
@@ -791,6 +870,7 @@ function serializeArticleFromEntity(article: {
     metadata: ensureNullableRecord(meta?.metadata),
     errorMessage: meta?.errorMessage ?? null,
     relevance: undefined,
+    storyId: article.storyId ?? null,
     createdAt: article.createdAt.toISOString(),
     updatedAt: article.updatedAt.toISOString()
   };

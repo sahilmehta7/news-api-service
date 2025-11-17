@@ -12,6 +12,7 @@ export const searchQuerySchema = z.object({
     .transform((value) => (value ? new Date(value) : undefined)),
   language: z.string().optional(),
   feedId: z.string().uuid().optional(),
+  feedCategory: z.string().optional(),
   size: z
     .string()
     .optional()

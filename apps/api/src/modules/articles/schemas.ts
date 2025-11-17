@@ -65,6 +65,42 @@ export const articleListQuerySchema = z
               .map((keyword) => keyword.trim())
               .filter(Boolean)
           : []
+      ),
+    fuzzy: z
+      .string()
+      .optional()
+      .transform((value) => {
+        if (value === undefined) return undefined;
+        return ["true", "1", "yes"].includes(value.toLowerCase());
+      }),
+    includeHighlights: z
+      .string()
+      .optional()
+      .transform((value) => {
+        if (value === undefined) return undefined;
+        return ["true", "1", "yes"].includes(value.toLowerCase());
+      }),
+    entities: z
+      .string()
+      .optional()
+      .transform((value) =>
+        value
+          ? value
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : undefined
+      ),
+    entityTypes: z
+      .string()
+      .optional()
+      .transform((value) =>
+        value
+          ? value
+              .split(",")
+              .map((s) => s.trim().toUpperCase())
+              .filter(Boolean)
+          : undefined
       )
   })
   .transform((value) => ({
@@ -119,7 +155,36 @@ export const articleListResponseSchema = z.object({
     pageSize: z.number().int().positive(),
     total: z.number().int().nonnegative(),
     hasNextPage: z.boolean()
-  })
+  }),
+  facets: z
+    .object({
+      feeds: z
+        .array(
+          z.object({
+            id: z.string().uuid(),
+            name: z.string(),
+            count: z.number().int().nonnegative()
+          })
+        )
+        .optional(),
+      categories: z
+        .array(
+          z.object({
+            category: z.string().nullable(),
+            count: z.number().int().nonnegative()
+          })
+        )
+        .optional(),
+      languages: z
+        .array(
+          z.object({
+            language: z.string().nullable(),
+            count: z.number().int().nonnegative()
+          })
+        )
+        .optional()
+    })
+    .optional()
 });
 
 export type ArticleListQuery = z.infer<typeof articleListQuerySchema>;

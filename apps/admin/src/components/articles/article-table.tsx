@@ -30,6 +30,7 @@ type ArticleTableProps = {
   isRefetching?: boolean;
   onDeleteArticle?: (article: Article) => void;
   deletingArticleId?: string | null;
+  hideSort?: boolean;
 };
 
 function ArticleTableComponent({
@@ -43,7 +44,8 @@ function ArticleTableComponent({
   onResetFilters,
   isRefetching,
   onDeleteArticle,
-  deletingArticleId
+  deletingArticleId,
+  hideSort = false
 }: ArticleTableProps) {
   if (loading && !articles) {
     return (
@@ -77,26 +79,35 @@ function ArticleTableComponent({
             <TableHead className="w-[360px]">Title</TableHead>
             <TableHead className="w-[180px]">Feed</TableHead>
             <TableHead className="w-[120px]">Status</TableHead>
-            <SortableHead
-              label="Published"
-              active={isSorted("publishedAt")}
-              order={order}
-              onClick={() => {
-                if (!onSortChange) return;
-                const nextOrder = isSorted("publishedAt") && order === "desc" ? "asc" : "desc";
-                onSortChange("publishedAt", nextOrder);
-              }}
-            />
-            <SortableHead
-              label="Fetched"
-              active={isSorted("fetchedAt")}
-              order={order}
-              onClick={() => {
-                if (!onSortChange) return;
-                const nextOrder = isSorted("fetchedAt") && order === "desc" ? "asc" : "desc";
-                onSortChange("fetchedAt", nextOrder);
-              }}
-            />
+            {hideSort ? (
+              <>
+                <TableHead className="w-[120px]">Published</TableHead>
+                <TableHead className="w-[120px]">Fetched</TableHead>
+              </>
+            ) : (
+              <>
+                <SortableHead
+                  label="Published"
+                  active={isSorted("publishedAt")}
+                  order={order}
+                  onClick={() => {
+                    if (!onSortChange) return;
+                    const nextOrder = isSorted("publishedAt") && order === "desc" ? "asc" : "desc";
+                    onSortChange("publishedAt", nextOrder);
+                  }}
+                />
+                <SortableHead
+                  label="Fetched"
+                  active={isSorted("fetchedAt")}
+                  order={order}
+                  onClick={() => {
+                    if (!onSortChange) return;
+                    const nextOrder = isSorted("fetchedAt") && order === "desc" ? "asc" : "desc";
+                    onSortChange("fetchedAt", nextOrder);
+                  }}
+                />
+              </>
+            )}
             <TableHead className="w-[100px]">Language</TableHead>
             <TableHead className="w-[120px] text-right">Reading time</TableHead>
             <TableHead className="w-[80px] text-right">Actions</TableHead>

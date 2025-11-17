@@ -9,6 +9,7 @@ import { fetchHtml } from "../lib/fetch-html.js";
 import { extractMetadataFromHtml } from "../lib/html-metadata.js";
 import { extractArticleContent } from "../lib/article-content.js";
 import { workerMetrics } from "../metrics/registry.js";
+import { extractEntities } from "../lib/entities.js";
 
 const MAX_RETRIES = 3;
 const BATCH_SIZE = 20;
@@ -296,7 +297,31 @@ async function enrichArticle(
 
     articleDoc.story_id = storyId;
 
-    await db.$transaction([
+    // Extract entities from plain content if available
+    const entities =
+      (contentResult.contentPlain ?? "").length > 0
+        ? await extractEntities(contentResult.contentPlain ?? "", metadataResult.language ?? article.language ?? undefined)
+        : [];
+
+    // Check if ArticleEntity model exists (Prisma client may not be regenerated yet)
+    // Use a safer check that won't throw if the property doesn't exist
+    let hasArticleEntity = false;
+    try {
+      hasArticleEntity = "articleEntity" in db && 
+        typeof (db as { articleEntity?: { deleteMany?: unknown; createMany?: unknown } }).articleEntity === "object" &&
+        typeof (db as { articleEntity: { deleteMany: unknown; createMany: unknown } }).articleEntity.deleteMany === "function";
+    } catch {
+      hasArticleEntity = false;
+    }
+
+    const updateData: Prisma.ArticleUpdateInput = {
+      language: metadataResult.language ?? article.language,
+      status: ArticleStatus.enriched,
+      content: contentResult.contentPlain ?? metadataResult.description ?? article.title,
+      storyId
+    };
+
+    const transactionOps: Prisma.PrismaPromise<unknown>[] = [
       db.articleMetadata.update({
         where: { articleId: article.articleId },
         data: {
@@ -320,14 +345,51 @@ async function enrichArticle(
       }),
       db.article.update({
         where: { id: article.articleId },
-        data: {
-          language: metadataResult.language ?? article.language,
-          status: ArticleStatus.enriched,
-          content: contentResult.contentPlain ?? metadataResult.description ?? article.title,
-          storyId
-        }
+        data: updateData
       })
-    ]);
+    ];
+
+    // Only process entities if model exists
+    if (hasArticleEntity) {
+      const articleEntity = (db as { articleEntity: { deleteMany: (args: { where: { articleId: string } }) => Promise<unknown>; createMany: (args: { data: unknown[] }) => Promise<unknown> } }).articleEntity;
+      
+      transactionOps.push(
+        articleEntity.deleteMany({ where: { articleId: article.articleId } })
+      );
+
+      if (entities.length > 0) {
+        transactionOps.push(
+          articleEntity.createMany({
+            data: entities.map((e) => ({
+              articleId: article.articleId,
+              text: e.text,
+              canonical: e.canonical ?? null,
+              type: e.type,
+              salience: e.salience ?? null,
+              start: e.start ?? null,
+              end: e.end ?? null
+            }))
+          }),
+          db.$executeRawUnsafe(
+            `UPDATE articles SET entities_tsv = to_tsvector('simple', $1) WHERE id = $2::uuid`,
+            entities.map((e) => e.text).join(" "),
+            article.articleId
+          )
+        );
+      } else {
+        transactionOps.push(
+          db.$executeRawUnsafe(
+            `UPDATE articles SET entities_tsv = NULL WHERE id = $1::uuid`,
+            article.articleId
+          )
+        );
+      }
+    }
+
+    await db.$transaction(transactionOps);
+
+    // Embeddings are stored in Elasticsearch only (via indexQueue.add below)
+    // No longer storing embeddings in PostgreSQL
 
     context.indexQueue.add(articleDoc);
 

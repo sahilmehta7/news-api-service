@@ -1,0 +1,10 @@
+{
+  "usa": ["united states", "u.s.", "u.s.a", "america"],
+  "ai": ["artificial intelligence", "machine intelligence"],
+  "openai": ["open ai"],
+  "uk": ["united kingdom", "u.k.", "britain"],
+  "eu": ["european union", "e.u."],
+  "msft": ["microsoft"],
+  "fb": ["meta", "facebook"]
+}
+

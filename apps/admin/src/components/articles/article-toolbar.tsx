@@ -42,6 +42,9 @@ type ArticleToolbarProps = {
   onResetFilters: () => void;
   groupByStory?: boolean;
   onGroupByStoryChange?: (enabled: boolean) => void;
+  hideSort?: boolean;
+  hideSearch?: boolean;
+  hideFilters?: boolean;
 };
 
 function ArticleToolbarComponent({
@@ -62,7 +65,10 @@ function ArticleToolbarComponent({
   onRemoveFilter,
   onResetFilters,
   groupByStory = false,
-  onGroupByStoryChange
+  onGroupByStoryChange,
+  hideSort = false,
+  hideSearch = false,
+  hideFilters = false
 }: ArticleToolbarProps) {
   const hasActiveFilters = activeFilters.length > 0;
 
@@ -70,6 +76,7 @@ function ArticleToolbarComponent({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex w-full flex-1 gap-2">
+          {!hideSearch && (
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -103,44 +110,51 @@ function ArticleToolbarComponent({
               ) : null}
             </div>
           </div>
+          )}
 
-          <Select value={sort} onValueChange={(value: string) => onSortChange(value as SortKey)}>
-            <SelectTrigger className="w-[160px] text-sm">
-              <SlidersHorizontal className="mr-2 h-4 w-4" />
-              <SelectValue placeholder="Sort" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="publishedAt">Newest published</SelectItem>
-              <SelectItem value="fetchedAt">Newest fetched</SelectItem>
-              <SelectItem value="relevance">Best match</SelectItem>
-            </SelectContent>
-          </Select>
+          {!hideSort && (
+            <>
+              <Select value={sort} onValueChange={(value: string) => onSortChange(value as SortKey)}>
+                <SelectTrigger className="w-[160px] text-sm">
+                  <SlidersHorizontal className="mr-2 h-4 w-4" />
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="publishedAt">Newest published</SelectItem>
+                  <SelectItem value="fetchedAt">Newest fetched</SelectItem>
+                  <SelectItem value="relevance">Best match</SelectItem>
+                </SelectContent>
+              </Select>
 
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label={`Toggle sort direction (${order === "desc" ? "descending" : "ascending"})`}
-            onClick={onToggleOrder}
-          >
-            <SortChevron order={order} />
-          </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label={`Toggle sort direction (${order === "desc" ? "descending" : "ascending"})`}
+                onClick={onToggleOrder}
+              >
+                <SortChevron order={order} />
+              </Button>
+            </>
+          )}
 
-          <Button
-            type="button"
-            variant={filtersOpen ? "default" : "outline"}
-            onClick={onToggleFilters}
-            aria-expanded={filtersOpen}
-            className="gap-2"
-          >
-            <Filter className="h-4 w-4" />
-            Filters
-            {filtersCount > 0 ? (
-              <span className="rounded-full bg-primary-foreground/15 px-1.5 py-0.5 text-xs font-medium text-primary">
-                {filtersCount}
-              </span>
-            ) : null}
-          </Button>
+          {!hideFilters && (
+            <Button
+              type="button"
+              variant={filtersOpen ? "default" : "outline"}
+              onClick={onToggleFilters}
+              aria-expanded={filtersOpen}
+              className="gap-2"
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+              {filtersCount > 0 ? (
+                <span className="rounded-full bg-primary-foreground/15 px-1.5 py-0.5 text-xs font-medium text-primary">
+                  {filtersCount}
+                </span>
+              ) : null}
+            </Button>
+          )}
         </div>
       </div>
 

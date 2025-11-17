@@ -104,6 +104,8 @@ export const articleSchema = z.object({
   metadata: z.record(z.unknown()).nullable(),
   errorMessage: z.string().nullable(),
   relevance: z.number().optional(),
+  moreCount: z.number().optional(), // Number of additional articles in same story (for grouping)
+  storyId: z.string().nullable().optional(), // Story ID for grouping related articles
   createdAt: z.string(),
   updatedAt: z.string()
 });

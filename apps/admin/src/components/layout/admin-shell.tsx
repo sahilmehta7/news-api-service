@@ -41,6 +41,7 @@ const NAV_LINKS: NavLink[] = [
   },
   { href: "/sources", label: "Sources" },
   { href: "/articles", label: "Articles" },
+  { href: "/search", label: "Search" },
   { href: "/stories", label: "Stories" },
   { href: "/metrics", label: "Metrics" },
   { href: "/logs", label: "Fetch Logs" },
