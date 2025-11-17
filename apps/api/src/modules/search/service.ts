@@ -37,39 +37,8 @@ export async function searchArticles(
 
   const indexName = getArticlesIndexName(config);
   
-  // If feedCategory is provided, fetch all feed IDs for that category
-  let feedIdsForCategory: string[] | undefined;
-  if (query.feedCategory && query.feedCategory.trim()) {
-    // Make category matching case-insensitive
-    const categoryFilter = query.feedCategory.trim();
-    const feedsWithCategory = await app.db.feed.findMany({
-      where: {
-        category: {
-          equals: categoryFilter,
-          mode: "insensitive" // Case-insensitive matching
-        }
-      },
-      select: {
-        id: true
-      }
-    });
-    feedIdsForCategory = feedsWithCategory.map((feed) => feed.id);
-    
-    // If no feeds found for this category, return empty results
-    if (feedIdsForCategory.length === 0) {
-      return {
-        data: [],
-        pagination: {
-          page: Math.floor(query.offset / query.size) + 1,
-          pageSize: query.size,
-          total: 0,
-          hasNextPage: false
-        }
-      };
-    }
-  }
-  
-  // Build filters (shared for both queries)
+  // Build filters for Elasticsearch (date, language, feedId only)
+  // Note: Category filtering is done at database level for reliability
   const filters: any[] = [];
   if (query.from) {
     filters.push({
@@ -96,17 +65,10 @@ export async function searchArticles(
       }
     });
   }
-  // Filter by feedId(s): use explicit feedId if provided, otherwise use feedIds from category
   if (query.feedId) {
     filters.push({
       term: {
         feed_id: query.feedId
-      }
-    });
-  } else if (feedIdsForCategory && feedIdsForCategory.length > 0) {
-    filters.push({
-      terms: {
-        feed_id: feedIdsForCategory
       }
     });
   }
@@ -138,33 +100,49 @@ export async function searchArticles(
   scoredResults.sort((a, b) => b.combinedScore - a.combinedScore);
 
   // Apply story diversification if requested
-  let articleIds: string[];
+  let candidateArticleIds: string[];
   let moreCountMap: Map<string, number> = new Map();
+  
+  // Calculate how many candidates we need to fetch
+  // If category filtering, fetch more to account for potential filtering out
+  const categoryFilterBuffer = query.feedCategory ? 3 : 1; // Fetch 3x more if filtering by category
+  const candidateSize = (query.offset + query.size) * categoryFilterBuffer;
+  
   if (query.groupByStory) {
-    // For story grouping, we need to diversify first, then paginate
-    // Get enough diversified results to cover the offset + page size
-    const diversifiedSize = query.offset + query.size;
-    const diversified = diversifyByStory(scoredResults, diversifiedSize);
-    // Apply pagination to diversified results
-    const paginatedDiversified = diversified.slice(query.offset, query.offset + query.size);
-    articleIds = paginatedDiversified.map((item) => item.id);
-    // Preserve moreCount metadata for story grouping
-    for (const item of paginatedDiversified) {
+    // For story grouping, we need to diversify first
+    // Get enough diversified results to cover filtering and pagination
+    const diversified = diversifyByStory(scoredResults, candidateSize);
+    candidateArticleIds = diversified.map((item) => item.id);
+    // Preserve moreCount metadata for all diversified results
+    for (const item of diversified) {
       if (item.moreCount !== undefined && item.moreCount > 0) {
         moreCountMap.set(item.id, item.moreCount);
       }
     }
   } else {
-    // Apply pagination with offset before taking page size
-    articleIds = scoredResults.slice(query.offset, query.offset + query.size).map((r) => r.id);
+    // Get candidate article IDs (more than needed to account for filtering)
+    candidateArticleIds = scoredResults.slice(0, candidateSize).map((r) => r.id);
   }
 
-  // Fetch full article data from database
-  // No need to filter by feedCategory here since we already filtered at Elasticsearch level
+  // Fetch full article data from database with category filtering
+  // Filter by category at database level for reliability (categories may not match exactly)
+  const whereClause: any = {
+    id: { in: candidateArticleIds }
+  };
+  
+  // Apply category filter at database level
+  if (query.feedCategory && query.feedCategory.trim()) {
+    const categoryFilter = query.feedCategory.trim();
+    whereClause.feed = {
+      category: {
+        equals: categoryFilter,
+        mode: "insensitive"
+      }
+    };
+  }
+
   const articles = await app.db.article.findMany({
-    where: {
-      id: { in: articleIds }
-    },
+    where: whereClause,
     select: {
       id: true,
       feedId: true,
@@ -194,8 +172,15 @@ export async function searchArticles(
   // Create a map for quick lookup
   const articlesById = new Map(articles.map((a) => [a.id, a]));
 
-  // Preserve order from search results and serialize
-  const data = articleIds
+  // Preserve order from search results (using candidate IDs order)
+  // Filter out articles that don't match category (if filtering)
+  const filteredOrderedIds = candidateArticleIds.filter((id) => articlesById.has(id));
+  
+  // Apply pagination to filtered results
+  const paginatedIds = filteredOrderedIds.slice(query.offset, query.offset + query.size);
+  
+  // Serialize articles in the correct order
+  const data = paginatedIds
     .map((id) => {
       const article = articlesById.get(id);
       if (!article) return null;
@@ -209,8 +194,46 @@ export async function searchArticles(
     })
     .filter((article): article is NonNullable<typeof article> => article !== null);
 
-  // Calculate total (approximate from union)
-  const total = Math.max(bm25Results.total, knnResults.total);
+  // Calculate total count
+  // If category filtering is active, we need a more accurate count from the database
+  let total: number;
+  if (query.feedCategory && query.feedCategory.trim()) {
+    // Get accurate count from database for category-filtered articles
+    // We need to count articles that match the category and are in our search results
+    // Since we can't easily count all matching articles in Elasticsearch with category filter,
+    // we estimate based on the ratio of filtered results to candidates
+    const categoryFilter = query.feedCategory.trim();
+    
+    // Count how many articles in our candidate set match the category
+    const categoryMatchCount = await app.db.article.count({
+      where: {
+        id: { in: candidateArticleIds },
+        feed: {
+          category: {
+            equals: categoryFilter,
+            mode: "insensitive"
+          }
+        }
+      }
+    });
+    
+    // Estimate total: if we got all candidates and they all matched, use Elasticsearch total
+    // Otherwise, estimate based on the ratio
+    const elasticsearchTotal = Math.max(bm25Results.total, knnResults.total);
+    if (candidateArticleIds.length <= elasticsearchTotal && categoryMatchCount === candidateArticleIds.length) {
+      // All candidates matched, so total is likely close to Elasticsearch total
+      total = elasticsearchTotal;
+    } else {
+      // Estimate based on match ratio
+      const matchRatio = candidateArticleIds.length > 0 
+        ? categoryMatchCount / candidateArticleIds.length 
+        : 0;
+      total = Math.floor(elasticsearchTotal * matchRatio);
+    }
+  } else {
+    // No category filter - use Elasticsearch total directly
+    total = Math.max(bm25Results.total, knnResults.total);
+  }
 
   // Transform pagination to match frontend expectations
   const page = Math.floor(query.offset / query.size) + 1;
