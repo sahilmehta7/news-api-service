@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import { formatRelativeTime } from "@/lib/utils/format-relative-time";
 import { ExternalLink } from "lucide-react";
